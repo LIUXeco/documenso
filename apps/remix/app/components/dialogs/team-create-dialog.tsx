@@ -292,7 +292,7 @@ export const TeamCreateDialog = ({ trigger, onCreated, ...props }: TeamCreateDia
                           />
 
                           <label
-                            className="ml-2 text-sm text-muted-foreground"
+                            className="ml-2 text-sm font-normal text-muted-foreground"
                             htmlFor="inherit-members"
                           >
                             <Trans>Allow all organisation members to access this team</Trans>

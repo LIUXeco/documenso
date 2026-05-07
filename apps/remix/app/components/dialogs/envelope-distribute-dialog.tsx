@@ -14,7 +14,6 @@ import * as z from 'zod';
 import { useCurrentEnvelopeEditor } from '@documenso/lib/client-only/providers/envelope-editor-provider';
 import { useCurrentOrganisation } from '@documenso/lib/client-only/providers/organisation';
 import { DO_NOT_INVALIDATE_QUERY_ON_MUTATION } from '@documenso/lib/constants/trpc';
-import { extractDocumentAuthMethods } from '@documenso/lib/utils/document-auth';
 import { getRecipientsWithMissingFields } from '@documenso/lib/utils/recipients';
 import { zEmail } from '@documenso/lib/utils/zod';
 import { trpc, trpc as trpcReact } from '@documenso/trpc/react';
@@ -144,20 +143,11 @@ export const EnvelopeDistributeDialog = ({
   );
 
   /**
-   * List of recipients who must have an email due to having auth enabled.
+   * List of recipients without an email. Email is mandatory before sending.
    */
   const recipientsMissingRequiredEmail = useMemo(() => {
-    return recipientsWithIndex.filter((recipient) => {
-      const auth = extractDocumentAuthMethods({
-        documentAuth: envelope.authOptions,
-        recipientAuth: recipient.authOptions,
-      });
-
-      return (
-        (auth.recipientAccessAuthRequired || auth.recipientActionAuthRequired) && !recipient.email
-      );
-    });
-  }, [recipientsWithIndex, envelope.authOptions]);
+    return recipientsWithIndex.filter((recipient) => !recipient.email);
+  }, [recipientsWithIndex]);
 
   const invalidEnvelopeCode = useMemo(() => {
     if (recipientsMissingSignatureFields.length > 0) {
@@ -387,8 +377,8 @@ export const EnvelopeDistributeDialog = ({
                                 <FormItem>
                                   <FormLabel className="flex flex-row items-center">
                                     <Trans>
-                                      Message{' '}
-                                      <span className="text-muted-foreground">(Optional)</span>
+                                      Message
+                                      <span className="ml-1 text-muted-foreground">(Optional)</span>
                                     </Trans>
                                     <Tooltip>
                                       <TooltipTrigger type="button">
@@ -422,7 +412,7 @@ export const EnvelopeDistributeDialog = ({
                         exit={{ opacity: 0, transition: { duration: 0.15 } }}
                         className="min-h-60 rounded-lg border"
                       >
-                        <div className="py-24 text-center text-sm text-muted-foreground">
+                        <div className="py-24 text-center text-sm font-normal text-muted-foreground">
                           <p>
                             <Trans>We won't send anything to notify recipients.</Trans>
                           </p>

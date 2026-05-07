@@ -1,68 +1,69 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Hr, Html, Img, Preview, Section } from '../components';
-import { useBranding } from '../providers/branding';
-import { TemplateFooter } from '../template-components/template-footer';
-import type { TemplateRecipientExpiredProps } from '../template-components/template-recipient-expired';
-import { TemplateRecipientExpired } from '../template-components/template-recipient-expired';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
-export type RecipientExpiredEmailTemplateProps = Partial<TemplateRecipientExpiredProps>;
+export type RecipientExpiredEmailTemplateProps = {
+  documentName?: string;
+  recipientName?: string;
+  recipientEmail?: string;
+  documentLink?: string;
+  assetBaseUrl?: string;
+};
+
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
 
 export const RecipientExpiredTemplate = ({
   documentName = 'Open Source Pledge.pdf',
   recipientName = 'John Doe',
   recipientEmail = 'john@example.com',
-  documentLink = 'https://documenso.com',
-  assetBaseUrl = 'http://localhost:3002',
+  documentLink = 'https://liux.eco',
 }: RecipientExpiredEmailTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
-
-  const previewText = msg`The signing window for "${recipientName}" on document "${documentName}" has expired.`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(
+    msg`El plazo de firma de "${recipientName}" para "${documentName}" ha expirado`,
+  );
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          El plazo para firmar el documento <strong>"{documentName}"</strong> de{' '}
+          <strong>{recipientName}</strong> ({recipientEmail}) ha expirado.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateRecipientExpired
-                documentName={documentName}
-                recipientName={recipientName}
-                recipientEmail={recipientEmail}
-                documentLink={documentLink}
-                assetBaseUrl={assetBaseUrl}
-              />
-            </Section>
-          </Container>
-
-          <Hr className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={documentLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Ver documento</Trans>
+        </Button>
+      </Section>
+    </TemplateBaseLayout>
   );
 };
 
-export default RecipientExpiredTemplate;
+export default withPreviewI18n(RecipientExpiredTemplate);

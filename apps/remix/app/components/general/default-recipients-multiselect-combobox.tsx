@@ -105,7 +105,7 @@ export const DefaultRecipientsMultiSelectCombobox = ({
       creatable
       loadingIndicator={
         isLoading ? (
-          <p className="text-center text-sm">
+          <p className="text-center text-sm font-normal">
             <Trans>Loading...</Trans>
           </p>
         ) : undefined

@@ -62,8 +62,10 @@ export const setDocumentRecipients = async ({
       documentMeta: true,
       team: {
         select: {
+          name: true,
           organisation: {
             select: {
+              name: true,
               organisationClaim: true,
             },
           },
@@ -312,6 +314,7 @@ export const setDocumentRecipients = async ({
           documentName: envelope.title,
           inviterName: user.name || undefined,
           assetBaseUrl,
+          organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
         });
 
         const [html, text] = await Promise.all([

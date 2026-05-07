@@ -80,6 +80,9 @@ export const resendDocument = async ({
         select: {
           teamEmail: true,
           name: true,
+          organisation: {
+            select: { name: true },
+          },
         },
       },
     },
@@ -172,13 +175,15 @@ export const resendDocument = async ({
       }
 
       if (organisationType === OrganisationType.ORGANISATION) {
+        const organisationName = envelope.team.organisation?.name ?? envelope.team.name;
+
         emailSubject = i18n._(
-          msg`Reminder: ${envelope.team.name} invited you to ${recipientActionVerb} a document`,
+          msg`Reminder: ${organisationName} invited you to ${recipientActionVerb} a document`,
         );
         emailMessage =
           envelope.documentMeta.message ||
           i18n._(
-            msg`${user.name || user.email} on behalf of "${envelope.team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
+            msg`${organisationName} has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
           );
       }
 
@@ -205,6 +210,7 @@ export const resendDocument = async ({
         selfSigner,
         organisationType,
         teamName: envelope.team?.name,
+        organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
       });
 
       const [html, text] = await Promise.all([

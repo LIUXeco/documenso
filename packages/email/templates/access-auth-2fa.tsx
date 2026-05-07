@@ -1,10 +1,15 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Html, Img, Preview, Section } from '../components';
-import { useBranding } from '../providers/branding';
-import { TemplateAccessAuth2FA } from '../template-components/template-access-auth-2fa';
-import { TemplateFooter } from '../template-components/template-footer';
+import { Section, Text } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
 export type AccessAuth2FAEmailTemplateProps = {
   documentTitle: string;
@@ -15,63 +20,71 @@ export type AccessAuth2FAEmailTemplateProps = {
   assetBaseUrl?: string;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const AccessAuth2FAEmailTemplate = ({
   documentTitle,
   code,
-  userEmail,
-  userName,
   expiresInMinutes,
-  assetBaseUrl = 'http://localhost:3002',
 }: AccessAuth2FAEmailTemplateProps) => {
   const { _ } = useLingui();
-
-  const branding = useBranding();
-
-  const previewText = msg`Your verification code is ${code}`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`Tu código de verificación es ${code}`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          Usa el siguiente código para acceder al documento <strong>"{documentTitle}"</strong>.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateAccessAuth2FA
-                documentTitle={documentTitle}
-                code={code}
-                userEmail={userEmail}
-                userName={userName}
-                expiresInMinutes={expiresInMinutes}
-                assetBaseUrl={assetBaseUrl}
-              />
-            </Section>
-          </Container>
+      <Section style={{ textAlign: 'center', margin: '32px 0' }}>
+        <Text
+          style={{
+            margin: '0 0 16px',
+            color: '#888',
+            fontSize: '11px',
+            fontWeight: 700,
+            textTransform: 'uppercase',
+            letterSpacing: '2px',
+            fontFamily: FONT_STACK,
+          }}
+        >
+          <Trans>Código de verificación</Trans>
+        </Text>
+        <Text
+          style={{
+            margin: 0,
+            fontSize: '36px',
+            fontWeight: 700,
+            color: '#1A1A1A',
+            letterSpacing: '8px',
+            fontFamily: FONT_STACK,
+          }}
+        >
+          {code}
+        </Text>
+        <Text
+          style={{
+            margin: '16px 0 0',
+            color: '#AAA',
+            fontSize: '12px',
+            fontFamily: FONT_STACK,
+          }}
+        >
+          <Trans>Este código expira en {expiresInMinutes} minutos</Trans>
+        </Text>
+      </Section>
 
-          <div className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>Si no has solicitado este código, puedes ignorar este email de forma segura.</Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default AccessAuth2FAEmailTemplate;
+export default withPreviewI18n(AccessAuth2FAEmailTemplate);

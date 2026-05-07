@@ -188,7 +188,7 @@ export const MultiSignDocumentSigningView = ({
             <div className="flex min-h-[400px] w-full items-center justify-center">
               <div className="flex flex-col items-center gap-4">
                 <Loader className="h-8 w-8 animate-spin text-primary" />
-                <p className="text-sm text-muted-foreground">
+                <p className="text-sm font-normal text-muted-foreground">
                   <Trans>Loading document...</Trans>
                 </p>
               </div>

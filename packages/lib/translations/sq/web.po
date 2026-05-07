@@ -3574,7 +3574,7 @@ msgstr "Kthehu në shtëpi"
 #: apps/remix/app/routes/_recipient+/sign.$token+/complete.tsx
 #: apps/remix/app/routes/_recipient+/sign.$token+/_index.tsx
 msgid "Go Back Home"
-msgstr "Kthehu në shtëpi"
+msgstr "Kryefaqja"
 
 #: apps/remix/app/routes/_authenticated+/_layout.tsx
 msgid "Go home"
@@ -5886,6 +5886,10 @@ msgstr "Hyr"
 #: apps/remix/app/components/general/document-signing/document-signing-auth-dialog.tsx
 msgid "Sign in to your account"
 msgstr "Hyni në llogarinë tuaj"
+
+#: apps/remix/app/routes/_unauthenticated+/signin.tsx
+msgid "Sign in"
+msgstr "Hyr"
 
 #: apps/remix/app/components/general/org-menu-switcher.tsx
 #: apps/remix/app/components/general/menu-switcher.tsx

@@ -2,113 +2,94 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Img,
-  Preview,
-  Section,
-  Text,
-} from '../components';
-import { useBranding } from '../providers/branding';
-import { TemplateFooter } from '../template-components/template-footer';
-import TemplateImage from '../template-components/template-image';
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
 export type OrganisationInviteEmailProps = {
-  assetBaseUrl: string;
-  baseUrl: string;
-  senderName: string;
-  organisationName: string;
-  token: string;
+  assetBaseUrl?: string;
+  baseUrl?: string;
+  senderName?: string;
+  organisationName?: string;
+  token?: string;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const OrganisationInviteEmailTemplate = ({
-  assetBaseUrl = 'http://localhost:3002',
-  baseUrl = 'https://documenso.com',
+  baseUrl = 'https://liux.eco',
   senderName = 'John Doe',
   organisationName = 'Organisation Name',
   token = '',
 }: OrganisationInviteEmailProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
+  const previewText = _(msg`Has sido invitado a unirte a ${organisationName}`);
 
-  const previewText = msg`Accept invitation to join an organisation on Documenso`;
+  const acceptLink = `${baseUrl}/organisation/invite/${token}`;
+  const declineLink = `${baseUrl}/organisation/decline/${token}`;
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto font-sans">
-        <Section className="bg-white text-slate-500">
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-2 backdrop-blur-sm">
-            {branding.brandingEnabled && branding.brandingLogo ? (
-              <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6 p-2" />
-            ) : (
-              <TemplateImage
-                assetBaseUrl={assetBaseUrl}
-                className="mb-4 h-6 p-2"
-                staticAsset="logo.png"
-              />
-            )}
+      <EmailParagraph>
+        <Trans>
+          <strong>{senderName}</strong> te ha invitado a unirte a la organización{' '}
+          <strong>{organisationName}</strong>.
+        </Trans>
+      </EmailParagraph>
 
-            <Section>
-              <TemplateImage
-                className="mx-auto"
-                assetBaseUrl={assetBaseUrl}
-                staticAsset="add-user.png"
-              />
-            </Section>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={acceptLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+            marginRight: '8px',
+          }}
+        >
+          <Trans>Aceptar invitación</Trans>
+        </Button>
+      </Section>
 
-            <Section className="p-2 text-slate-500">
-              <Text className="text-center text-lg font-medium text-black">
-                <Trans>Join {organisationName} on Documenso</Trans>
-              </Text>
+      <Section style={{ textAlign: 'center', marginBottom: '8px' }}>
+        <Button
+          href={declineLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#F2F2F2',
+            color: '#666',
+            fontFamily: FONT_STACK,
+            fontSize: '14px',
+            fontWeight: 500,
+            padding: '12px 28px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Rechazar</Trans>
+        </Button>
+      </Section>
 
-              <Text className="my-1 text-center text-base">
-                <Trans>You have been invited to join the following organisation</Trans>
-              </Text>
-
-              <div className="mx-auto my-2 w-fit rounded-lg bg-gray-50 px-4 py-2 text-base font-medium text-slate-600">
-                {organisationName}
-              </div>
-
-              <Text className="my-1 text-center text-base">
-                <Trans>
-                  by <span className="text-slate-900">{senderName}</span>
-                </Trans>
-              </Text>
-
-              <Section className="mb-6 mt-6 text-center">
-                <Button
-                  className="bg-documenso-500 inline-flex items-center justify-center rounded-lg px-6 py-3 text-center text-sm font-medium text-black no-underline"
-                  href={`${baseUrl}/organisation/invite/${token}`}
-                >
-                  <Trans>Accept</Trans>
-                </Button>
-                <Button
-                  className="ml-4 inline-flex items-center justify-center rounded-lg bg-gray-50 px-6 py-3 text-center text-sm font-medium text-slate-600 no-underline"
-                  href={`${baseUrl}/organisation/decline/${token}`}
-                >
-                  <Trans>Decline</Trans>
-                </Button>
-              </Section>
-            </Section>
-          </Container>
-
-          <Hr className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>Si no esperabas esta invitación, puedes ignorar este email.</Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default OrganisationInviteEmailTemplate;
+export default withPreviewI18n(OrganisationInviteEmailTemplate);

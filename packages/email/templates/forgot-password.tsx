@@ -1,62 +1,68 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Html, Img, Preview, Section } from '../components';
-import { useBranding } from '../providers/branding';
-import { TemplateFooter } from '../template-components/template-footer';
-import type { TemplateForgotPasswordProps } from '../template-components/template-forgot-password';
-import { TemplateForgotPassword } from '../template-components/template-forgot-password';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
-export type ForgotPasswordTemplateProps = Partial<TemplateForgotPasswordProps>;
+export type ForgotPasswordTemplateProps = {
+  resetPasswordLink?: string;
+  assetBaseUrl?: string;
+};
+
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
 
 export const ForgotPasswordTemplate = ({
-  resetPasswordLink = 'https://documenso.com',
-  assetBaseUrl = 'http://localhost:3002',
+  resetPasswordLink = 'https://liux.eco',
 }: ForgotPasswordTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
-
-  const previewText = msg`Password Reset Requested`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`Restablece tu contraseña`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          Hemos recibido una solicitud para restablecer la contraseña de tu cuenta. Pulsa el botón
+          de abajo para crear una nueva contraseña.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateForgotPassword
-                resetPasswordLink={resetPasswordLink}
-                assetBaseUrl={assetBaseUrl}
-              />
-            </Section>
-          </Container>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={resetPasswordLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Restablecer contraseña</Trans>
+        </Button>
+      </Section>
 
-          <div className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>
+          Si no has solicitado restablecer tu contraseña, puedes ignorar este email de forma segura.
+        </Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default ForgotPasswordTemplate;
+export default withPreviewI18n(ForgotPasswordTemplate);

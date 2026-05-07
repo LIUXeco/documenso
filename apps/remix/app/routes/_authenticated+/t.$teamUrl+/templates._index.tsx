@@ -3,7 +3,6 @@ import { useMemo, useState } from 'react';
 import { msg } from '@lingui/core/macro';
 import { Trans } from '@lingui/react/macro';
 import { EnvelopeType, OrganisationType } from '@prisma/client';
-import { Bird } from 'lucide-react';
 import { parseAsStringLiteral, useQueryState } from 'nuqs';
 import { useParams, useSearchParams } from 'react-router';
 
@@ -141,15 +140,13 @@ export default function TemplatesPage() {
 
           <div className="mt-8">
             {activeQuery.data && activeQuery.data.count === 0 ? (
-              <div className="flex h-96 flex-col items-center justify-center gap-y-4 text-muted-foreground/60">
-                <Bird className="h-12 w-12" strokeWidth={1.5} />
-
+              <div className="flex h-96 flex-col items-center justify-center gap-y-2 text-muted-foreground/60">
                 <div className="text-center">
-                  <h3 className="text-lg font-semibold">
+                  <h3 className="text-lg font-normal">
                     <Trans>We're all empty</Trans>
                   </h3>
 
-                  <p className="mt-2 max-w-[50ch]">
+                  <p className="mt-2 max-w-[50ch] font-normal">
                     {isOrgView ? (
                       <Trans>No organisation templates are shared with your team yet.</Trans>
                     ) : (

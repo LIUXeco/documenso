@@ -155,7 +155,7 @@ export const DocumentSigningPageViewV2 = () => {
                 <motion.div
                   layout="size"
                   layoutId="document-flow-container-step"
-                  className="absolute inset-y-0 left-0 bg-primary"
+                  className="absolute inset-y-0 left-0 bg-[#0073EC]"
                   style={{
                     width: `${100 - (100 / requiredRecipientFields.length) * (recipientFieldsRemaining.length ?? 0)}%`,
                   }}

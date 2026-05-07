@@ -70,7 +70,7 @@ export default function EnvelopeEditorPage({ params }: Route.ComponentProps) {
 
   if (isLoadingEnvelope) {
     return (
-      <div className="flex h-screen w-screen flex-col items-center justify-center gap-2 text-foreground">
+      <div className="flex h-screen w-screen flex-col items-center justify-center gap-2 font-normal text-foreground">
         <Spinner />
         <Trans>Loading</Trans>
       </div>

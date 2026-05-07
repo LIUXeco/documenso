@@ -44,7 +44,7 @@ export const deleteEnvelopeRecipient = async ({
     },
     include: {
       documentMeta: true,
-      team: true,
+      team: { include: { organisation: { select: { name: true } } } },
       recipients: {
         where: {
           id: recipientId,
@@ -151,6 +151,7 @@ export const deleteEnvelopeRecipient = async ({
       documentName: envelope.title,
       inviterName: envelope.team?.name || user.name || undefined,
       assetBaseUrl,
+      organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
     });
 
     const { branding, emailLanguage, senderEmail, replyToEmail } = await getEmailContext({

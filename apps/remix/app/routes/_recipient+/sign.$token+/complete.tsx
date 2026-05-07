@@ -5,7 +5,6 @@ import { CheckCircle2, Clock8, DownloadIcon, Loader2 } from 'lucide-react';
 import { Link } from 'react-router';
 import { match } from 'ts-pattern';
 
-import signingCelebration from '@documenso/assets/images/signing-celebration.png';
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
 import { getDocumentAndSenderByToken } from '@documenso/lib/server-only/document/get-document-by-token';
@@ -143,12 +142,12 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
   return (
     <div
       className={cn(
-        '-mx-4 flex flex-col items-center overflow-hidden px-4 pt-16 md:-mx-8 md:px-8 lg:pt-20 xl:pt-28',
-        { 'pt-0 lg:pt-0 xl:pt-0': canSignUp },
+        '-mx-4 -mt-8 flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 md:-mx-8 md:-mt-12 md:px-8',
+        { 'min-h-0 justify-start pt-0 lg:pt-0 xl:pt-0': canSignUp },
       )}
     >
       <div
-        className={cn('relative mt-6 flex w-full flex-col items-center justify-center', {
+        className={cn('relative mt-2 flex w-full flex-col items-center justify-center', {
           'mt-0 flex-col divide-y overflow-hidden pt-6 md:pt-16 lg:flex-row lg:divide-x lg:divide-y-0 lg:pt-20 xl:pt-24':
             canSignUp,
         })}
@@ -165,11 +164,7 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
           </Badge>
 
           {/* Card with recipient */}
-          <SigningCard3D
-            name={recipientName}
-            signature={signatures.at(0)}
-            signingCelebrationImage={signingCelebration}
-          />
+          <SigningCard3D name={recipientName} signature={signatures.at(0)} />
 
           <h2 className="mt-6 max-w-[35ch] text-center text-2xl font-semibold leading-normal md:text-3xl lg:text-4xl">
             {recipient.role === RecipientRole.SIGNER && <Trans>Document Signed</Trans>}
@@ -179,7 +174,7 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
 
           {match({ status: signingStatus, deletedAt: document.deletedAt })
             .with({ status: 'COMPLETED' }, () => (
-              <div className="mt-4 flex items-center text-center text-documenso-700">
+              <div className="mt-4 flex items-center text-center text-[#0073EC]">
                 <CheckCircle2 className="mr-2 h-5 w-5" />
                 <span className="text-sm">
                   <Trans>Everyone has signed</Trans>

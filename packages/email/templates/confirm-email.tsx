@@ -1,58 +1,63 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Html, Img, Preview, Section } from '../components';
-import { useBranding } from '../providers/branding';
-import type { TemplateConfirmationEmailProps } from '../template-components/template-confirmation-email';
-import { TemplateConfirmationEmail } from '../template-components/template-confirmation-email';
-import { TemplateFooter } from '../template-components/template-footer';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
+
+export type ConfirmEmailTemplateProps = {
+  confirmationLink: string;
+  assetBaseUrl?: string;
+};
+
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
 
 export const ConfirmEmailTemplate = ({
-  confirmationLink,
-  assetBaseUrl = 'http://localhost:3002',
-}: TemplateConfirmationEmailProps) => {
+  confirmationLink = 'https://liux.eco',
+}: ConfirmEmailTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
-
-  const previewText = msg`Please confirm your email address`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`Confirma tu dirección de email`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-              <TemplateConfirmationEmail
-                confirmationLink={confirmationLink}
-                assetBaseUrl={assetBaseUrl}
-              />
-            </Section>
-          </Container>
-          <div className="mx-auto mt-12 max-w-xl" />
+      <EmailParagraph>
+        <Trans>Confirma tu dirección de email para terminar de configurar tu cuenta.</Trans>
+      </EmailParagraph>
 
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={confirmationLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Confirmar email</Trans>
+        </Button>
+      </Section>
+
+      <EmailMutedNote>
+        <Trans>Si no creaste esta cuenta, puedes ignorar este email de forma segura.</Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default ConfirmEmailTemplate;
+export default withPreviewI18n(ConfirmEmailTemplate);

@@ -75,7 +75,7 @@ export default function DocumentPage({ params }: Route.ComponentProps) {
 
   if (isLoadingEnvelope) {
     return (
-      <div className="flex w-screen flex-col items-center justify-center gap-2 py-64 text-foreground">
+      <div className="flex w-screen flex-col items-center justify-center gap-2 py-64 font-normal text-foreground">
         <Spinner />
         <Trans>Loading</Trans>
       </div>
@@ -114,7 +114,7 @@ export default function DocumentPage({ params }: Route.ComponentProps) {
         <DocumentRecipientLinkCopyDialog recipients={envelope.recipients} />
       )}
 
-      <Link to={documentRootPath} className="flex items-center text-documenso-700 hover:opacity-80">
+      <Link to={documentRootPath} className="flex items-center text-[#0073EC] hover:opacity-80">
         <ChevronLeft className="mr-2 inline-block h-5 w-5" />
         <Trans>Documents</Trans>
       </Link>
@@ -129,11 +129,11 @@ export default function DocumentPage({ params }: Route.ComponentProps) {
             <DocumentStatusComponent
               inheritColor
               status={envelope.status}
-              className="text-muted-foreground"
+              className="font-normal text-muted-foreground"
             />
 
             {envelope.recipients.length > 0 && (
-              <div className="flex items-center text-muted-foreground">
+              <div className="flex items-center font-normal text-muted-foreground">
                 <Users2 className="mr-2 h-5 w-5" />
 
                 <StackAvatarsWithTooltip

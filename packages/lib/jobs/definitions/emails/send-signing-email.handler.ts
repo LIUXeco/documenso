@@ -69,6 +69,9 @@ export const run = async ({
           select: {
             teamEmail: true,
             name: true,
+            organisation: {
+              select: { name: true },
+            },
           },
         },
       },
@@ -138,16 +141,16 @@ export const run = async ({
   }
 
   if (organisationType === OrganisationType.ORGANISATION) {
-    emailSubject = i18n._(msg`${team.name} invited you to ${recipientActionVerb} a document`);
+    const organisationName = team.organisation?.name ?? team.name;
+
+    emailSubject = i18n._(
+      msg`${organisationName} invited you to ${recipientActionVerb} a document`,
+    );
     emailMessage = customEmail?.message ?? '';
 
     if (!emailMessage) {
-      const inviterName = user.name || '';
-
       emailMessage = i18n._(
-        settings.includeSenderDetails
-          ? msg`${inviterName} on behalf of "${team.name}" has invited you to ${recipientActionVerb} the document "${envelope.title}".`
-          : msg`${team.name} has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
+        msg`${organisationName} has invited you to ${recipientActionVerb} the document "${envelope.title}".`,
       );
     }
   }
@@ -175,6 +178,7 @@ export const run = async ({
     selfSigner,
     organisationType,
     teamName: team?.name,
+    organisationName: team?.organisation?.name ?? team?.name,
     teamEmail: team?.teamEmail?.email,
     includeSenderDetails: settings.includeSenderDetails,
   });

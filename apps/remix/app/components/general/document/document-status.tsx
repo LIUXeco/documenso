@@ -22,19 +22,19 @@ export const FRIENDLY_STATUS_MAP: Record<ExtendedDocumentStatus, FriendlyStatus>
     label: msg`Pending`,
     labelExtended: msg`Document pending`,
     icon: Clock,
-    color: 'text-blue-600 dark:text-blue-300',
+    color: 'text-[#0073EC]',
   },
   COMPLETED: {
     label: msg`Completed`,
     labelExtended: msg`Document completed`,
     icon: CheckCircle2,
-    color: 'text-green-500 dark:text-green-300',
+    color: 'text-[#2F9B19]',
   },
   DRAFT: {
     label: msg`Draft`,
     labelExtended: msg`Document draft`,
     icon: File,
-    color: 'text-yellow-500 dark:text-yellow-200',
+    color: 'text-[#FFC83E]',
   },
   REJECTED: {
     label: msg`Rejected`,

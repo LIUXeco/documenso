@@ -205,7 +205,7 @@ export const TeamMemberCreateDialog = ({ trigger, ...props }: TeamMemberCreateDi
                         to="https://docs.documenso.com/users/organisations/members"
                         target="_blank"
                         rel="noreferrer"
-                        className="text-documenso-700 hover:text-documenso-600 hover:underline"
+                        className="text-[#0073EC] hover:underline hover:opacity-80"
                       >
                         documentation
                       </Link>
@@ -346,7 +346,7 @@ export const TeamMemberCreateDialog = ({ trigger, ...props }: TeamMemberCreateDi
                                       <Button
                                         type="button"
                                         variant="link"
-                                        className="h-auto p-0 text-sm font-medium text-documenso-700 hover:text-documenso-600"
+                                        className="h-auto p-0 text-sm font-medium text-[#0073EC] hover:opacity-80"
                                       >
                                         <Trans>Invite them to the organisation first</Trans>
                                       </Button>

@@ -4,6 +4,16 @@ export type TemplateCustomMessageBodyProps = {
   text?: string;
 };
 
+const PARAGRAPH_STYLE: React.CSSProperties = {
+  margin: '0 0 16px',
+  color: '#666',
+  fontSize: '16px',
+  lineHeight: 1.7,
+  fontFamily: 'Helvetica, Arial, sans-serif',
+  whiteSpace: 'pre-line',
+  wordBreak: 'break-word',
+};
+
 export const TemplateCustomMessageBody = ({ text }: TemplateCustomMessageBodyProps) => {
   if (!text) {
     return null;
@@ -17,19 +27,20 @@ export const TemplateCustomMessageBody = ({ text }: TemplateCustomMessageBodyPro
 
   const paragraphs = normalized.split('\n\n');
 
-  return paragraphs.map((paragraph, i) => (
-    <p
-      key={`p-${i}`}
-      className="whitespace-pre-line break-words font-sans text-base text-slate-400"
-    >
-      {paragraph.split('\n').map((line, j) => (
-        <React.Fragment key={`line-${i}-${j}`}>
-          {j > 0 && <br />}
-          {line}
-        </React.Fragment>
+  return (
+    <>
+      {paragraphs.map((paragraph, i) => (
+        <p key={`p-${i}`} style={PARAGRAPH_STYLE}>
+          {paragraph.split('\n').map((line, j) => (
+            <React.Fragment key={`line-${i}-${j}`}>
+              {j > 0 && <br />}
+              {line}
+            </React.Fragment>
+          ))}
+        </p>
       ))}
-    </p>
-  ));
+    </>
+  );
 };
 
 export default TemplateCustomMessageBody;

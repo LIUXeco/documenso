@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
@@ -68,6 +68,32 @@ export const DocumentSigningNameField = ({
 
   const [showFullNameModal, setShowFullNameModal] = useState(false);
   const [localFullName, setLocalFullName] = useState('');
+
+  const debouncedSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!field.inserted) return;
+    if (!providedFullName) return;
+    if (providedFullName === field.customText) return;
+    if (isAssistantMode) return;
+
+    if (debouncedSyncRef.current) clearTimeout(debouncedSyncRef.current);
+    debouncedSyncRef.current = setTimeout(() => {
+      void signFieldWithToken({
+        token: recipient.token,
+        fieldId: field.id,
+        value: providedFullName,
+        isBase64: false,
+      })
+        .then(async () => revalidate())
+        .catch(() => {});
+    }, 500);
+
+    return () => {
+      if (debouncedSyncRef.current) clearTimeout(debouncedSyncRef.current);
+    };
+    // eslint-disable-next-line
+  }, [providedFullName, field.inserted, field.customText]);
 
   const onPreSign = () => {
     if (!providedFullName && !isAssistantMode) {
@@ -173,13 +199,17 @@ export const DocumentSigningNameField = ({
 
       {!field.inserted && (
         <DocumentSigningFieldsUninserted>
-          <Trans>Name</Trans>
+          {providedFullName ? (
+            <span className="opacity-60">{providedFullName}</span>
+          ) : (
+            <Trans>Name</Trans>
+          )}
         </DocumentSigningFieldsUninserted>
       )}
 
       {field.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {providedFullName && !isAssistantMode ? providedFullName : field.customText}
         </DocumentSigningFieldsInserted>
       )}
 

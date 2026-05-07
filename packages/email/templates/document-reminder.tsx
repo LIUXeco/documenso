@@ -1,91 +1,80 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 import { RecipientRole } from '@prisma/client';
 
 import { RECIPIENT_ROLES_DESCRIPTION } from '@documenso/lib/constants/recipient-roles';
 
-import { Body, Container, Head, Hr, Html, Img, Preview, Section, Text } from '../components';
-import { useBranding } from '../providers/branding';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 import { TemplateCustomMessageBody } from '../template-components/template-custom-message-body';
-import { TemplateDocumentReminder } from '../template-components/template-document-reminder';
-import { TemplateFooter } from '../template-components/template-footer';
 
 export type DocumentReminderEmailTemplateProps = {
-  recipientName: string;
-  documentName: string;
-  signDocumentLink: string;
+  recipientName?: string;
+  documentName?: string;
+  signDocumentLink?: string;
   assetBaseUrl?: string;
   customBody?: string;
-  role: RecipientRole;
+  role?: RecipientRole;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const DocumentReminderEmailTemplate = ({
-  recipientName = 'John Doe',
   documentName = 'Open Source Pledge.pdf',
-  signDocumentLink = 'https://documenso.com',
-  assetBaseUrl = 'http://localhost:3002',
+  signDocumentLink = 'https://liux.eco',
   customBody,
   role = RecipientRole.SIGNER,
 }: DocumentReminderEmailTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
 
   const action = _(RECIPIENT_ROLES_DESCRIPTION[role].actionVerb).toLowerCase();
-
-  const previewText = msg`Reminder to ${action} ${documentName}`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`Recordatorio: ${action} "${documentName}"`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          Te recordamos que tienes pendiente firmar el documento <strong>"{documentName}"</strong>.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateDocumentReminder
-                recipientName={recipientName}
-                documentName={documentName}
-                signDocumentLink={signDocumentLink}
-                assetBaseUrl={assetBaseUrl}
-                role={role}
-              />
-            </Section>
-          </Container>
+      {customBody && <TemplateCustomMessageBody text={customBody} />}
 
-          {customBody && (
-            <Container className="mx-auto mt-12 max-w-xl">
-              <Section>
-                <Text className="mt-2 text-base text-slate-400">
-                  <TemplateCustomMessageBody text={customBody} />
-                </Text>
-              </Section>
-            </Container>
-          )}
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={signDocumentLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Firmar documento</Trans>
+        </Button>
+      </Section>
 
-          <Hr className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>Si ya has firmado, puedes ignorar este recordatorio.</Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default DocumentReminderEmailTemplate;
+export default withPreviewI18n(DocumentReminderEmailTemplate);

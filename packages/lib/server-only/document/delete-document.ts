@@ -58,6 +58,12 @@ export const deleteDocument = async ({
     include: {
       recipients: true,
       documentMeta: true,
+      team: {
+        select: {
+          name: true,
+          organisation: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -221,6 +227,7 @@ const handleDocumentOwnerDelete = async ({
         inviterName: user.name || undefined,
         inviterEmail: user.email,
         assetBaseUrl,
+        organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
       });
 
       const [html, text] = await Promise.all([

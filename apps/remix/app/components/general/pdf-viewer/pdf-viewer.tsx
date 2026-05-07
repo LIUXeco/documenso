@@ -307,7 +307,7 @@ const VirtualizedPageList = ({
               customPageRenderer={customPageRenderer}
             />
 
-            <p className="my-2 text-center text-[11px] text-muted-foreground/80">
+            <p className="my-2 text-center text-[11px] font-normal text-muted-foreground/80">
               <Trans>
                 Page {pageNumber} of {numPages}
               </Trans>

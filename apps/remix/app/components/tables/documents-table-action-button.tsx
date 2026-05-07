@@ -41,6 +41,7 @@ export const DocumentsTableActionButton = ({ row }: DocumentsTableActionButtonPr
 
   const documentsPath = formatDocumentsPath(team.url);
   const formatPath = `${documentsPath}/${row.envelopeId}/edit`;
+  const detailPath = `${documentsPath}/${row.envelopeId}`;
 
   // TODO: Consider if want to keep this logic for hiding viewing for CC'ers
   if (recipient?.role === RecipientRole.CC && isComplete === false) {
@@ -93,12 +94,21 @@ export const DocumentsTableActionButton = ({ row }: DocumentsTableActionButtonPr
         </Link>
       </Button>
     ))
-    .with({ isPending: true, isSigned: true }, () => (
-      <Button className="w-32" disabled={true}>
-        <EyeIcon className="-ml-1 mr-2 h-4 w-4" />
-        <Trans>View</Trans>
-      </Button>
-    ))
+    .with({ isPending: true, isSigned: true }, () =>
+      isOwner || isCurrentTeamDocument ? (
+        <Button className="w-32" asChild>
+          <Link to={detailPath}>
+            <EyeIcon className="-ml-1 mr-2 h-4 w-4" />
+            <Trans>View</Trans>
+          </Link>
+        </Button>
+      ) : (
+        <Button className="w-32" disabled={true}>
+          <EyeIcon className="-ml-1 mr-2 h-4 w-4" />
+          <Trans>View</Trans>
+        </Button>
+      ),
+    )
     .with({ isComplete: true }, () => (
       <EnvelopeDownloadDialog
         envelopeId={row.envelopeId}

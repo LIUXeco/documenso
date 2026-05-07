@@ -45,7 +45,7 @@ export const LanguageSwitcherDialog = ({ open, setOpen }: LanguageSwitcherDialog
           {Object.values(SUPPORTED_LANGUAGES).map((language) => (
             <CommandItem
               key={language.short}
-              value={_(language.full)}
+              value={`${language.native} ${_(language.full)}`}
               onSelect={async () => setLanguage(language.short)}
             >
               <CheckIcon
@@ -54,7 +54,7 @@ export const LanguageSwitcherDialog = ({ open, setOpen }: LanguageSwitcherDialog
                   i18n.locale === language.short ? 'opacity-100' : 'opacity-0',
                 )}
               />
-              {_(language.full)}
+              {language.native}
             </CommandItem>
           ))}
         </CommandGroup>

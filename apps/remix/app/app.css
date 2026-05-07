@@ -68,4 +68,26 @@
     --font-signature: 'Caveat';
     --font-noto: 'Noto Sans', 'Noto Sans Korean', 'Noto Sans Japanese', 'Noto Sans Chinese';
   }
+
+  body {
+    font-family: 'Inter', ui-sans-serif, system-ui, sans-serif;
+    font-weight: 600;
+    letter-spacing: -0.04em;
+  }
+
+  [data-radix-popper-content-wrapper],
+  [data-radix-popper-content-wrapper] *,
+  [cmdk-root],
+  [cmdk-root] * {
+    font-weight: 400;
+  }
+
+  p.text-muted-foreground {
+    font-weight: 400;
+  }
+
+  section.bg-widget li,
+  section.bg-widget li * {
+    font-weight: 400;
+  }
 }

@@ -138,6 +138,47 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
     const fieldToRender = ZFullFieldSchema.parse(unparsedField);
 
+    if (fieldToRender.recipientId === recipient.id) {
+      let previewText: string | null = null;
+
+      if (fieldToRender.type === FieldType.NAME && fullName) {
+        previewText = fullName;
+      } else if (fieldToRender.type === FieldType.EMAIL && email) {
+        previewText = email;
+      } else if (fieldToRender.type === FieldType.INITIALS && fullName) {
+        previewText = extractInitials(fullName) || null;
+      }
+
+      if (previewText && previewText !== fieldToRender.customText) {
+        fieldToRender.customText = previewText;
+        if (!fieldToRender.inserted) {
+          fieldToRender.inserted = true;
+        }
+      }
+    }
+
+    let signatureOverride = unparsedField.signature;
+    if (
+      fieldToRender.recipientId === recipient.id &&
+      fieldToRender.type === FieldType.SIGNATURE &&
+      signature
+    ) {
+      const isImage = signature.startsWith('data:image');
+      const currentImage = unparsedField.signature?.signatureImageAsBase64 ?? null;
+      const currentTyped = unparsedField.signature?.typedSignature ?? null;
+
+      if ((isImage && currentImage !== signature) || (!isImage && currentTyped !== signature)) {
+        signatureOverride = {
+          ...(unparsedField.signature ?? {}),
+          signatureImageAsBase64: isImage ? signature : null,
+          typedSignature: isImage ? null : signature,
+        } as Signature;
+        if (!fieldToRender.inserted) {
+          fieldToRender.inserted = true;
+        }
+      }
+    }
+
     const color = fieldToRender.fieldMeta?.readOnly
       ? 'readOnly'
       : showPendingFieldTooltip && isFieldUnsignedAndRequired(fieldToRender)
@@ -154,7 +195,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
         height: Number(fieldToRender.height),
         positionX: Number(fieldToRender.positionX),
         positionY: Number(fieldToRender.positionY),
-        signature: unparsedField.signature,
+        signature: signatureOverride,
       },
       translations: getClientSideFieldTranslations(i18n),
       pageWidth: unscaledViewport.width,

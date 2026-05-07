@@ -86,7 +86,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
         <Link to="/" onClick={handleMenuItemClick}>
           <img
             src={LogoImage}
-            alt="Documenso Logo"
+            alt="LIUX Sign Logo"
             className="dark:invert"
             width={170}
             height={25}
@@ -103,7 +103,7 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
             >
               {text}
               {href === '/inbox' && unreadCountData && unreadCountData.count > 0 && (
-                <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-primary px-1.5 text-xs font-semibold text-primary-foreground">
+                <span className="flex h-6 min-w-[1.5rem] items-center justify-center rounded-full bg-[#0073EC] px-1.5 text-xs font-semibold text-white">
                   {unreadCountData.count > 99 ? '99+' : unreadCountData.count}
                 </span>
               )}

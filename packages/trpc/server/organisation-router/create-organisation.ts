@@ -9,13 +9,13 @@ import { INTERNAL_CLAIM_ID, internalClaims } from '@documenso/lib/types/subscrip
 import { generateStripeOrganisationCreateMetadata } from '@documenso/lib/utils/billing';
 import { prisma } from '@documenso/prisma';
 
-import { authenticatedProcedure } from '../trpc';
+import { adminProcedure } from '../trpc';
 import {
   ZCreateOrganisationRequestSchema,
   ZCreateOrganisationResponseSchema,
 } from './create-organisation.types';
 
-export const createOrganisationRoute = authenticatedProcedure
+export const createOrganisationRoute = adminProcedure
   // .meta(createOrganisationMeta)
   .input(ZCreateOrganisationRequestSchema)
   .output(ZCreateOrganisationResponseSchema)

@@ -1,3 +1,5 @@
+import { useEffect, useRef } from 'react';
+
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
@@ -55,6 +57,32 @@ export const DocumentSigningEmailField = ({
 
   const safeFieldMeta = ZEmailFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
+
+  const debouncedSyncRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  useEffect(() => {
+    if (!field.inserted) return;
+    if (!providedEmail) return;
+    if (providedEmail === field.customText) return;
+    if (isAssistantMode) return;
+
+    if (debouncedSyncRef.current) clearTimeout(debouncedSyncRef.current);
+    debouncedSyncRef.current = setTimeout(() => {
+      void signFieldWithToken({
+        token: recipient.token,
+        fieldId: field.id,
+        value: providedEmail,
+        isBase64: false,
+      })
+        .then(async () => revalidate())
+        .catch(() => {});
+    }, 500);
+
+    return () => {
+      if (debouncedSyncRef.current) clearTimeout(debouncedSyncRef.current);
+    };
+    // eslint-disable-next-line
+  }, [providedEmail, field.inserted, field.customText]);
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
     try {
@@ -127,13 +155,17 @@ export const DocumentSigningEmailField = ({
 
       {!field.inserted && (
         <DocumentSigningFieldsUninserted>
-          <Trans>Email</Trans>
+          {providedEmail ? (
+            <span className="opacity-60">{providedEmail}</span>
+          ) : (
+            <Trans>Email</Trans>
+          )}
         </DocumentSigningFieldsUninserted>
       )}
 
       {field.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {providedEmail && !isAssistantMode ? providedEmail : field.customText}
         </DocumentSigningFieldsInserted>
       )}
     </DocumentSigningFieldContainer>

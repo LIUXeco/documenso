@@ -6,7 +6,7 @@ export const EmbedClientLoading = () => {
     <div className="fixed left-0 top-0 z-[9999] flex h-full w-full items-center justify-center bg-background">
       <Loader className="mr-2 h-4 w-4 animate-spin" />
 
-      <span>
+      <span className="font-normal">
         <Trans>Loading...</Trans>
       </span>
     </div>

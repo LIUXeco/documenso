@@ -144,7 +144,7 @@ export const DEFAULT_EDITOR_CONFIG: EnvelopeEditorConfig = {
     allowReplace: true,
   },
   recipients: {
-    allowAIDetection: true,
+    allowAIDetection: false,
     allowConfigureSigningOrder: true,
     allowConfigureDictateNextSigner: true,
 
@@ -154,7 +154,7 @@ export const DEFAULT_EDITOR_CONFIG: EnvelopeEditorConfig = {
     allowAssistantRole: true,
   },
   fields: {
-    allowAIDetection: true,
+    allowAIDetection: false,
   },
 };
 

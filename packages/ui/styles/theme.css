@@ -29,8 +29,8 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
 
-    --primary: 95.08 71.08% 67.45%;
-    --primary-foreground: 95.08 71.08% 10%;
+    --primary: 240 3.33% 11.76%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 210 40% 96.1%;
     --secondary-foreground: 222.2 47.4% 11.2%;
@@ -41,7 +41,7 @@
     --destructive: 0 100% 50%;
     --destructive-foreground: 210 40% 98%;
 
-    --ring: 95.08 71.08% 67.45%;
+    --ring: 211 100% 46%;
 
     --radius: 0.5rem;
 
@@ -49,7 +49,7 @@
 
     --gold: 47.9 95.8% 53.1%;
 
-    --recipient-green: 100 48% 55%;
+    --recipient-green: 211 100% 46%;
     --recipient-blue: 212 56% 50%;
     --recipient-purple: 266 100% 64%;
     --recipient-orange: 36 92% 54%;
@@ -164,8 +164,8 @@
 
     --field-border: 214.3 31.8% 91.4%;
 
-    --primary: 95.08 71.08% 67.45%;
-    --primary-foreground: 95.08 71.08% 10%;
+    --primary: 240 3.33% 11.76%;
+    --primary-foreground: 0 0% 100%;
 
     --secondary: 0 0% 23.4%;
     --secondary-foreground: 95.08 71.08% 67.45%;
@@ -176,7 +176,7 @@
     --destructive: 0 87% 62%;
     --destructive-foreground: 0 87% 19%;
 
-    --ring: 95.08 71.08% 67.45%;
+    --ring: 211 100% 46%;
 
     --radius: 0.5rem;
 

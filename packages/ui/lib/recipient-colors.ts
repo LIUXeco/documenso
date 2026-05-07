@@ -77,7 +77,7 @@ const CSS_VARIANT = {
   hover: 'hover',
 };
 
-const AVAILABLE_RECIPIENT_COLORS = ['green', 'blue', 'purple', 'orange', 'yellow', 'pink'] as const;
+const AVAILABLE_RECIPIENT_COLORS = ['green', 'purple', 'orange', 'pink', 'yellow', 'blue'] as const;
 
 export const RECIPIENT_DYNAMIC_CLASS = {
   pattern: new RegExp(

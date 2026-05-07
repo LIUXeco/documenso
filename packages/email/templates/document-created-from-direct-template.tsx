@@ -5,12 +5,15 @@ import { RecipientRole } from '@prisma/client';
 
 import { RECIPIENT_ROLES_DESCRIPTION } from '@documenso/lib/constants/recipient-roles';
 
-import { Body, Button, Container, Head, Html, Img, Preview, Section, Text } from '../components';
-import { useBranding } from '../providers/branding';
-import TemplateDocumentImage from '../template-components/template-document-image';
-import { TemplateFooter } from '../template-components/template-footer';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
-export type DocumentCompletedEmailTemplateProps = {
+export type DocumentCreatedFromDirectTemplateProps = {
   recipientName?: string;
   recipientRole?: RecipientRole;
   documentLink?: string;
@@ -18,75 +21,52 @@ export type DocumentCompletedEmailTemplateProps = {
   assetBaseUrl?: string;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const DocumentCreatedFromDirectTemplateEmailTemplate = ({
   recipientName = 'John Doe',
   recipientRole = RecipientRole.SIGNER,
-  documentLink = 'http://localhost:3000',
+  documentLink = 'https://liux.eco',
   documentName = 'Open Source Pledge.pdf',
-  assetBaseUrl = 'http://localhost:3002',
-}: DocumentCompletedEmailTemplateProps) => {
+}: DocumentCreatedFromDirectTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
-
   const action = _(RECIPIENT_ROLES_DESCRIPTION[recipientRole].actioned).toLowerCase();
 
-  const previewText = msg`Document created from direct template`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`${recipientName} ha ${action} un documento de tu enlace directo`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto font-sans">
-        <Section className="bg-white">
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-2 backdrop-blur-sm">
-            <Section className="p-2">
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          <strong>{recipientName}</strong> ha {action} el documento{' '}
+          <strong>"{documentName}"</strong> usando uno de tus enlaces directos.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateDocumentImage className="mt-6" assetBaseUrl={assetBaseUrl} />
-
-              <Section>
-                <Text className="text-primary mb-0 text-center text-lg font-semibold">
-                  <Trans>
-                    {recipientName} {action} a document by using one of your direct links
-                  </Trans>
-                </Text>
-
-                <div className="mx-auto my-2 w-fit rounded-lg bg-gray-50 px-4 py-2 text-sm text-slate-600">
-                  {documentName}
-                </div>
-
-                <Section className="my-6 text-center">
-                  <Button
-                    className="bg-documenso-500 inline-flex items-center justify-center rounded-lg px-6 py-3 text-center text-sm font-medium text-black no-underline"
-                    href={documentLink}
-                  >
-                    <Trans>View document</Trans>
-                  </Button>
-                </Section>
-              </Section>
-            </Section>
-          </Container>
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={documentLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Ver documento</Trans>
+        </Button>
+      </Section>
+    </TemplateBaseLayout>
   );
 };
 
-export default DocumentCreatedFromDirectTemplateEmailTemplate;
+export default withPreviewI18n(DocumentCreatedFromDirectTemplateEmailTemplate);

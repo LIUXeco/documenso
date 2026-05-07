@@ -2,129 +2,100 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import type { RecipientRole } from '@prisma/client';
-import { OrganisationType } from '@prisma/client';
 
 import { RECIPIENT_ROLES_DESCRIPTION } from '@documenso/lib/constants/recipient-roles';
 
-import { Body, Container, Head, Hr, Html, Img, Link, Preview, Section, Text } from '../components';
-import { useBranding } from '../providers/branding';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 import { TemplateCustomMessageBody } from '../template-components/template-custom-message-body';
-import type { TemplateDocumentInviteProps } from '../template-components/template-document-invite';
-import { TemplateDocumentInvite } from '../template-components/template-document-invite';
-import { TemplateFooter } from '../template-components/template-footer';
 
-export type DocumentInviteEmailTemplateProps = Partial<TemplateDocumentInviteProps> & {
+export type DocumentInviteEmailTemplateProps = {
+  inviterName?: string;
+  inviterEmail?: string;
+  documentName?: string;
+  signDocumentLink?: string;
+  assetBaseUrl?: string;
   customBody?: string;
   role: RecipientRole;
   selfSigner?: boolean;
   teamName?: string;
-  teamEmail?: string;
+  organisationName?: string;
   includeSenderDetails?: boolean;
-  organisationType?: OrganisationType;
+  recipientName?: string;
+  organisationType?: unknown;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const DocumentInviteEmailTemplate = ({
-  inviterName = 'Lucas Smith',
-  inviterEmail = 'lucas@documenso.com',
   documentName = 'Open Source Pledge.pdf',
-  signDocumentLink = 'https://documenso.com',
-  assetBaseUrl = 'http://localhost:3002',
+  signDocumentLink = 'https://liux.eco',
   customBody,
   role,
   selfSigner = false,
   teamName = '',
-  includeSenderDetails,
-  organisationType,
+  organisationName = '',
 }: DocumentInviteEmailTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
 
   const action = _(RECIPIENT_ROLES_DESCRIPTION[role].actionVerb).toLowerCase();
+  const senderLabel = organisationName || teamName || '';
 
-  let previewText = msg`${inviterName} has invited you to ${action} ${documentName}`;
-
-  if (organisationType === OrganisationType.ORGANISATION) {
-    previewText = includeSenderDetails
-      ? msg`${inviterName} on behalf of "${teamName}" has invited you to ${action} ${documentName}`
-      : msg`${teamName} has invited you to ${action} ${documentName}`;
-  }
-
-  if (selfSigner) {
-    previewText = msg`Please ${action} your document ${documentName}`;
-  }
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = selfSigner
+    ? _(msg`Please ${action} your document ${documentName}`)
+    : _(msg`${senderLabel} has invited you to ${action} ${documentName}`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        {selfSigner ? (
+          <Trans>
+            Por favor, firma tu documento <strong>"{documentName}"</strong>.
+          </Trans>
+        ) : (
+          <Trans>
+            <strong>{senderLabel}</strong> te ha invitado a firmar el documento{' '}
+            <strong>"{documentName}"</strong>.
+          </Trans>
+        )}
+      </EmailParagraph>
 
-              <TemplateDocumentInvite
-                inviterName={inviterName}
-                inviterEmail={inviterEmail}
-                documentName={documentName}
-                signDocumentLink={signDocumentLink}
-                assetBaseUrl={assetBaseUrl}
-                role={role}
-                selfSigner={selfSigner}
-                organisationType={organisationType}
-                teamName={teamName}
-                includeSenderDetails={includeSenderDetails}
-              />
-            </Section>
-          </Container>
+      {customBody && <TemplateCustomMessageBody text={customBody} />}
 
-          <Container className="mx-auto mt-12 max-w-xl">
-            <Section>
-              {organisationType === OrganisationType.PERSONAL && (
-                <Text className="my-4 text-base font-semibold">
-                  <Trans>
-                    {inviterName}{' '}
-                    <Link className="font-normal text-slate-400" href="mailto:{inviterEmail}">
-                      ({inviterEmail})
-                    </Link>
-                  </Trans>
-                </Text>
-              )}
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={signDocumentLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Firmar documento</Trans>
+        </Button>
+      </Section>
 
-              <Text className="mt-2 text-base text-slate-400">
-                {customBody ? (
-                  <TemplateCustomMessageBody text={customBody} />
-                ) : (
-                  <Trans>
-                    {inviterName} has invited you to {action} the document "{documentName}".
-                  </Trans>
-                )}
-              </Text>
-            </Section>
-          </Container>
-
-          <Hr className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>Si no esperabas este email, puedes ignorarlo de forma segura.</Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default DocumentInviteEmailTemplate;
+export default withPreviewI18n(DocumentInviteEmailTemplate);

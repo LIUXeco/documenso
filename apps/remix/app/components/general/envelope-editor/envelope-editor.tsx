@@ -320,7 +320,9 @@ export const EnvelopeEditor = () => {
                         >
                           {t(step.title)}
                         </div>
-                        <div className="text-xs text-muted-foreground">{t(step.description)}</div>
+                        <div className="text-xs font-normal text-muted-foreground">
+                          {t(step.description)}
+                        </div>
                       </div>
                     )}
                   </div>

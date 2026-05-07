@@ -1,66 +1,68 @@
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Html, Img, Preview, Section } from '../components';
-import { useBranding } from '../providers/branding';
-import type { TemplateDocumentCompletedProps } from '../template-components/template-document-completed';
-import { TemplateDocumentCompleted } from '../template-components/template-document-completed';
-import { TemplateFooter } from '../template-components/template-footer';
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
+import { TemplateCustomMessageBody } from '../template-components/template-custom-message-body';
 
-export type DocumentCompletedEmailTemplateProps = Partial<TemplateDocumentCompletedProps> & {
+export type DocumentCompletedEmailTemplateProps = {
+  downloadLink?: string;
+  documentName?: string;
+  assetBaseUrl?: string;
   customBody?: string;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const DocumentCompletedEmailTemplate = ({
-  downloadLink = 'https://documenso.com',
+  downloadLink = 'https://liux.eco',
   documentName = 'Open Source Pledge.pdf',
-  assetBaseUrl = 'http://localhost:3002',
   customBody,
 }: DocumentCompletedEmailTemplateProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
 
-  const previewText = msg`Completed Document`;
-
-  const getAssetUrl = (path: string) => {
-    return new URL(path, assetBaseUrl).toString();
-  };
+  const previewText = _(msg`"${documentName}" fue firmado por todas las partes`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto font-sans">
-        <Section className="bg-white">
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-2 backdrop-blur-sm">
-            <Section className="p-2">
-              {branding.brandingEnabled && branding.brandingLogo ? (
-                <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6" />
-              ) : (
-                <Img
-                  src={getAssetUrl('/static/logo.png')}
-                  alt="Documenso Logo"
-                  className="mb-4 h-6"
-                />
-              )}
+      <EmailParagraph>
+        <Trans>
+          El documento <strong>"{documentName}"</strong> ha sido firmado por todas las partes.
+        </Trans>
+      </EmailParagraph>
 
-              <TemplateDocumentCompleted
-                downloadLink={downloadLink}
-                documentName={documentName}
-                assetBaseUrl={assetBaseUrl}
-                customBody={customBody}
-              />
-            </Section>
-          </Container>
+      {customBody && <TemplateCustomMessageBody text={customBody} />}
 
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={downloadLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Descargar documento</Trans>
+        </Button>
+      </Section>
+    </TemplateBaseLayout>
   );
 };
 
-export default DocumentCompletedEmailTemplate;
+export default withPreviewI18n(DocumentCompletedEmailTemplate);

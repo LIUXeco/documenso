@@ -1,8 +1,13 @@
+import { useState } from 'react';
+
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { ChevronLeft } from 'lucide-react';
+import { ChevronLeft, Globe } from 'lucide-react';
 import { Link, Outlet, isRouteErrorResponse } from 'react-router';
 
 import { useOptionalSession } from '@documenso/lib/client-only/providers/session';
+import { LanguageSwitcherDialog } from '@documenso/ui/components/common/language-switcher-dialog';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 
@@ -19,6 +24,8 @@ import type { Route } from './+types/_layout';
  */
 export default function RecipientLayout({ matches }: Route.ComponentProps) {
   const { sessionData } = useOptionalSession();
+  const { _ } = useLingui();
+  const [languageOpen, setLanguageOpen] = useState(false);
 
   // Hide the header for signing routes.
   const hideHeader = matches.some(
@@ -38,6 +45,17 @@ export default function RecipientLayout({ matches }: Route.ComponentProps) {
       >
         <Outlet />
       </main>
+
+      <button
+        type="button"
+        onClick={() => setLanguageOpen(true)}
+        aria-label={_(msg`Change language`)}
+        className="fixed bottom-6 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <Globe className="h-5 w-5" />
+      </button>
+
+      <LanguageSwitcherDialog open={languageOpen} setOpen={setLanguageOpen} />
     </div>
   );
 }

@@ -46,11 +46,11 @@ export const DocumentPageViewInformation = ({
         value: mapSecondaryIdToDocumentId(envelope.secondaryId),
       },
     ];
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line
   }, [isMounted, envelope, userId]);
 
   return (
-    <section className="dark:bg-background text-foreground border-border bg-widget flex flex-col rounded-xl border">
+    <section className="flex flex-col rounded-xl border border-border bg-widget text-foreground dark:bg-background">
       <h1 className="px-4 py-3 font-medium">
         <Trans>Information</Trans>
       </h1>
@@ -59,7 +59,7 @@ export const DocumentPageViewInformation = ({
         {documentInformation.map((item, i) => (
           <li
             key={i}
-            className="flex items-center justify-between px-4 py-2.5 text-sm last:border-b"
+            className="flex items-center justify-between px-4 py-2.5 text-sm font-normal last:border-b"
           >
             <span className="text-muted-foreground">{_(item.description)}</span>
             <span>{item.value}</span>

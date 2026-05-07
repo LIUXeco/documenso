@@ -41,6 +41,12 @@ export const adminSuperDeleteDocument = async ({
           name: true,
         },
       },
+      team: {
+        select: {
+          name: true,
+          organisation: { select: { name: true } },
+        },
+      },
     },
   });
 
@@ -87,6 +93,7 @@ export const adminSuperDeleteDocument = async ({
           inviterName: user.name || undefined,
           inviterEmail: user.email,
           assetBaseUrl,
+          organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
         });
 
         const lang = envelope.documentMeta?.language ?? settings.documentLanguage;

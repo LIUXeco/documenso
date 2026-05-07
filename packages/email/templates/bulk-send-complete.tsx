@@ -1,8 +1,14 @@
-import { Trans, msg } from '@lingui/macro';
+import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
+import { Trans } from '@lingui/react/macro';
 
-import { Body, Container, Head, Html, Preview, Section, Text } from '../components';
-import { TemplateFooter } from '../template-components/template-footer';
+import { Section, Text } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
+import {
+  EmailHeading,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
 export interface BulkSendCompleteEmailProps {
   userName: string;
@@ -14,8 +20,16 @@ export interface BulkSendCompleteEmailProps {
   assetBaseUrl?: string;
 }
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+const ITEM_STYLE = {
+  margin: '0 0 6px',
+  color: '#666',
+  fontSize: '15px',
+  lineHeight: 1.6,
+  fontFamily: FONT_STACK,
+};
+
 export const BulkSendCompleteEmail = ({
-  userName,
   templateName,
   totalProcessed,
   successCount,
@@ -23,69 +37,59 @@ export const BulkSendCompleteEmail = ({
   errors,
 }: BulkSendCompleteEmailProps) => {
   const { _ } = useLingui();
+  const previewText = _(msg`Envío masivo completado: ${templateName}`);
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(msg`Bulk send operation complete for template "${templateName}"`)}</Preview>
-      <Body className="mx-auto my-auto bg-white font-sans">
-        <Section>
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 p-4 backdrop-blur-sm">
-            <Section>
-              <Text className="text-sm">
-                <Trans>Hi {userName},</Trans>
-              </Text>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-              <Text className="text-sm">
-                <Trans>Your bulk send operation for template "{templateName}" has completed.</Trans>
-              </Text>
+      <EmailParagraph>
+        <Trans>
+          El envío masivo para la plantilla <strong>"{templateName}"</strong> ha finalizado.
+        </Trans>
+      </EmailParagraph>
 
-              <Text className="text-lg font-semibold">
-                <Trans>Summary:</Trans>
-              </Text>
+      <Section style={{ marginTop: '8px' }}>
+        <Text style={ITEM_STYLE}>
+          <Trans>Total procesado: {totalProcessed}</Trans>
+        </Text>
+        <Text style={ITEM_STYLE}>
+          <Trans>Creados con éxito: {successCount}</Trans>
+        </Text>
+        <Text style={ITEM_STYLE}>
+          <Trans>Errores: {failedCount}</Trans>
+        </Text>
+      </Section>
 
-              <ul className="my-2 ml-4 list-inside list-disc">
-                <li>
-                  <Trans>Total rows processed: {totalProcessed}</Trans>
-                </li>
-                <li className="mt-1">
-                  <Trans>Successfully created: {successCount}</Trans>
-                </li>
-                <li className="mt-1">
-                  <Trans>Failed: {failedCount}</Trans>
-                </li>
-              </ul>
-
-              {failedCount > 0 && (
-                <Section className="mt-4">
-                  <Text className="text-lg font-semibold">
-                    <Trans>The following errors occurred:</Trans>
-                  </Text>
-
-                  <ul className="my-2 ml-4 list-inside list-disc">
-                    {errors.map((error, index) => (
-                      <li key={index} className="text-destructive mt-1 text-sm text-slate-400">
-                        {error}
-                      </li>
-                    ))}
-                  </ul>
-                </Section>
-              )}
-
-              <Text className="text-sm">
-                <Trans>
-                  You can view the created documents in your dashboard under the "Documents created
-                  from template" section.
-                </Trans>
-              </Text>
-            </Section>
-          </Container>
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
+      {failedCount > 0 && errors.length > 0 && (
+        <Section style={{ marginTop: '24px' }}>
+          <Text
+            style={{
+              ...ITEM_STYLE,
+              fontSize: '16px',
+              fontWeight: 600,
+              color: '#1A1A1A',
+            }}
+          >
+            <Trans>Errores detectados:</Trans>
+          </Text>
+          {errors.map((error, index) => (
+            <Text key={index} style={{ ...ITEM_STYLE, color: '#AAA', fontSize: '13px' }}>
+              {error}
+            </Text>
+          ))}
         </Section>
-      </Body>
-    </Html>
+      )}
+
+      <EmailParagraph>
+        <Trans>
+          Puedes ver los documentos creados desde la sección "Documentos creados desde plantilla".
+        </Trans>
+      </EmailParagraph>
+    </TemplateBaseLayout>
   );
 };
+
+export default withPreviewI18n(BulkSendCompleteEmail);

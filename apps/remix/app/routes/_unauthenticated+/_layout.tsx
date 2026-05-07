@@ -1,27 +1,30 @@
+import { useState } from 'react';
+
+import { msg } from '@lingui/core/macro';
+import { useLingui } from '@lingui/react';
+import { Globe } from 'lucide-react';
 import { Outlet } from 'react-router';
 
-import backgroundPattern from '@documenso/assets/images/background-pattern.png';
+import { LanguageSwitcherDialog } from '@documenso/ui/components/common/language-switcher-dialog';
 
 export default function Layout() {
-  return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden px-4 py-12 md:p-12 lg:p-24">
-      <div>
-        <div className="absolute -inset-[min(600px,max(400px,60vw))] -z-[1] flex items-center justify-center opacity-70">
-          <img
-            src={backgroundPattern}
-            alt="background pattern"
-            className="dark:brightness-95 dark:contrast-[70%] dark:invert dark:sepia"
-            style={{
-              mask: 'radial-gradient(rgba(255, 255, 255, 1) 0%, transparent 80%)',
-              WebkitMask: 'radial-gradient(rgba(255, 255, 255, 1) 0%, transparent 80%)',
-            }}
-          />
-        </div>
+  const { _ } = useLingui();
+  const [languageOpen, setLanguageOpen] = useState(false);
 
-        <div className="relative w-full">
-          <Outlet />
-        </div>
-      </div>
+  return (
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#F2F2F2] px-4 py-12 md:p-12 lg:p-24">
+      <Outlet />
+
+      <button
+        type="button"
+        onClick={() => setLanguageOpen(true)}
+        aria-label={_(msg`Change language`)}
+        className="fixed bottom-6 right-6 z-20 flex h-12 w-12 items-center justify-center rounded-full border border-border bg-white text-foreground shadow-sm transition hover:bg-neutral-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+      >
+        <Globe className="h-5 w-5" />
+      </button>
+
+      <LanguageSwitcherDialog open={languageOpen} setOpen={setLanguageOpen} />
     </main>
   );
 }

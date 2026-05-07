@@ -1,13 +1,11 @@
 import { Trans } from '@lingui/react/macro';
-import { Link } from 'react-router';
 
-import { SUPPORT_EMAIL } from '@documenso/lib/constants/app';
-import { Button } from '@documenso/ui/primitives/button';
+const LEGAL_EMAIL = 'legal@liux.eco';
 
 export default function SignatureDisclosure() {
   return (
     <div>
-      <article className="prose dark:prose-invert">
+      <article className="prose font-normal dark:prose-invert">
         <h1>
           <Trans>Electronic Signature Disclosure</Trans>
         </h1>
@@ -17,7 +15,7 @@ export default function SignatureDisclosure() {
         </h2>
         <p>
           <Trans>
-            Thank you for using Documenso to perform your electronic document signing. The purpose
+            Thank you for using LIUX Sign to perform your electronic document signing. The purpose
             of this disclosure is to inform you about the process, legality, and your rights
             regarding the use of electronic signatures on our platform. By opting to use an
             electronic signature, you are agreeing to the terms and conditions outlined below.
@@ -100,7 +98,7 @@ export default function SignatureDisclosure() {
             You have the right to withdraw your consent to use electronic signatures at any time
             before completing the signing process. To withdraw your consent, please contact the
             sender of the document. In failing to contact the sender you may reach out to{' '}
-            <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a> for assistance. Be aware that
+            <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a> for assistance. Be aware that
             withdrawing consent may delay or halt the completion of the related transaction or
             service.
           </Trans>
@@ -135,7 +133,7 @@ export default function SignatureDisclosure() {
         </h2>
         <p>
           <Trans>
-            By proceeding to use the electronic signature service provided by Documenso, you affirm
+            By proceeding to use the electronic signature service provided by LIUX Sign, you affirm
             that you have read and understood this disclosure. You agree to all terms and conditions
             related to the use of electronic signatures and electronic transactions as outlined
             herein.
@@ -148,18 +146,10 @@ export default function SignatureDisclosure() {
         <p>
           <Trans>
             For any questions regarding this disclosure, electronic signatures, or any related
-            process, please contact us at: <a href={`mailto:${SUPPORT_EMAIL}`}>{SUPPORT_EMAIL}</a>
+            process, please contact us at: <a href={`mailto:${LEGAL_EMAIL}`}>{LEGAL_EMAIL}</a>
           </Trans>
         </p>
       </article>
-
-      <div className="mt-8">
-        <Button asChild>
-          <Link to="/">
-            <Trans>Back home</Trans>
-          </Link>
-        </Button>
-      </div>
     </div>
   );
 }

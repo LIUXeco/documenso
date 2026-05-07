@@ -8,7 +8,6 @@ import { Trans } from '@lingui/react/macro';
 import type { TurnstileInstance } from '@marsidev/react-turnstile';
 import { Turnstile } from '@marsidev/react-turnstile';
 import { browserSupportsWebAuthn, startAuthentication } from '@simplewebauthn/browser';
-import { KeyRoundIcon } from 'lucide-react';
 import { useForm } from 'react-hook-form';
 import { FaIdCardClip } from 'react-icons/fa6';
 import { FcGoogle } from 'react-icons/fc';
@@ -390,7 +389,7 @@ export const SignInForm = ({
                 <p className="mt-2 text-right">
                   <Link
                     to="/forgot-password"
-                    className="text-sm text-muted-foreground duration-200 hover:opacity-70"
+                    className="text-sm font-normal text-muted-foreground duration-200 hover:opacity-70"
                   >
                     <Trans>Forgot your password?</Trans>
                   </Link>
@@ -416,7 +415,7 @@ export const SignInForm = ({
             type="submit"
             size="lg"
             loading={isSubmitting}
-            className="dark:bg-documenso dark:hover:opacity-90"
+            className="dark:bg-[#0073EC] dark:hover:opacity-90"
           >
             {isSubmitting ? <Trans>Signing in...</Trans> : <Trans>Sign In</Trans>}
           </Button>
@@ -480,19 +479,6 @@ export const SignInForm = ({
               )}
             </>
           )}
-
-          <Button
-            type="button"
-            size="lg"
-            variant="outline"
-            disabled={isSubmitting}
-            loading={isPasskeyLoading}
-            className="border bg-background text-muted-foreground"
-            onClick={onSignInWithPasskey}
-          >
-            {!isPasskeyLoading && <KeyRoundIcon className="-ml-1 mr-1 h-5 w-5" />}
-            <Trans>Passkey</Trans>
-          </Button>
         </fieldset>
       </form>
 

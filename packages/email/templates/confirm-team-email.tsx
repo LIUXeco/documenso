@@ -2,139 +2,80 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
-import { formatTeamUrl } from '@documenso/lib/utils/teams';
-
+import { Button, Section } from '../components';
+import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
-  Body,
-  Button,
-  Container,
-  Head,
-  Hr,
-  Html,
-  Img,
-  Link,
-  Preview,
-  Section,
-  Text,
-} from '../components';
-import { useBranding } from '../providers/branding';
-import { TemplateFooter } from '../template-components/template-footer';
-import TemplateImage from '../template-components/template-image';
+  EmailHeading,
+  EmailMutedNote,
+  EmailParagraph,
+  TemplateBaseLayout,
+} from '../template-components/template-base-layout';
 
 export type ConfirmTeamEmailProps = {
-  assetBaseUrl: string;
-  baseUrl: string;
-  teamName: string;
-  teamUrl: string;
-  token: string;
+  assetBaseUrl?: string;
+  baseUrl?: string;
+  teamName?: string;
+  teamUrl?: string;
+  token?: string;
 };
 
+const FONT_STACK = 'Helvetica, Arial, sans-serif';
+
 export const ConfirmTeamEmailTemplate = ({
-  assetBaseUrl = 'http://localhost:3002',
-  baseUrl = 'https://documenso.com',
+  baseUrl = 'https://liux.eco',
   teamName = 'Team Name',
-  teamUrl = 'demo',
   token = '',
 }: ConfirmTeamEmailProps) => {
   const { _ } = useLingui();
-  const branding = useBranding();
+  const previewText = _(msg`Confirma el email del equipo ${teamName}`);
 
-  const previewText = msg`Accept team email request for ${teamName} on Documenso`;
+  const acceptLink = `${baseUrl}/team/verify/email/${token}`;
 
   return (
-    <Html>
-      <Head />
-      <Preview>{_(previewText)}</Preview>
+    <TemplateBaseLayout previewText={previewText}>
+      <EmailHeading>
+        <Trans>¡Hola!</Trans>
+      </EmailHeading>
 
-      <Body className="mx-auto my-auto font-sans">
-        <Section className="bg-white">
-          <Container className="mx-auto mb-2 mt-8 max-w-xl rounded-lg border border-solid border-slate-200 px-2 pt-2 backdrop-blur-sm">
-            {branding.brandingEnabled && branding.brandingLogo ? (
-              <Img src={branding.brandingLogo} alt="Branding Logo" className="mb-4 h-6 p-2" />
-            ) : (
-              <TemplateImage
-                assetBaseUrl={assetBaseUrl}
-                className="mb-4 h-6 p-2"
-                staticAsset="logo.png"
-              />
-            )}
+      <EmailParagraph>
+        <Trans>
+          <strong>{teamName}</strong> ha solicitado usar tu dirección de email para su equipo.
+        </Trans>
+      </EmailParagraph>
 
-            <Section>
-              <TemplateImage
-                className="mx-auto"
-                assetBaseUrl={assetBaseUrl}
-                staticAsset="mail-open.png"
-              />
-            </Section>
+      <EmailParagraph>
+        <Trans>
+          Si aceptas, este equipo podrá ver los documentos enviados o recibidos en este email,
+          permitir respuestas directas y enviar documentos en su nombre desde esta dirección.
+        </Trans>
+      </EmailParagraph>
 
-            <Section className="p-2 text-slate-500">
-              <Text className="text-center text-lg font-medium text-black">
-                <Trans>Verify your team email address</Trans>
-              </Text>
+      <Section style={{ textAlign: 'center', margin: '32px 0 8px' }}>
+        <Button
+          href={acceptLink}
+          style={{
+            display: 'inline-block',
+            backgroundColor: '#1D1D1F',
+            color: '#FFFFFF',
+            fontFamily: FONT_STACK,
+            fontSize: '15px',
+            fontWeight: 600,
+            padding: '14px 32px',
+            borderRadius: '999px',
+            textDecoration: 'none',
+          }}
+        >
+          <Trans>Aceptar solicitud</Trans>
+        </Button>
+      </Section>
 
-              <Text className="text-center text-base">
-                <Trans>
-                  <span className="font-bold">{teamName}</span> has requested to use your email
-                  address for their team on Documenso.
-                </Trans>
-              </Text>
-
-              <div className="mx-auto mt-6 w-fit rounded-lg bg-gray-50 px-4 py-2 text-base font-medium text-slate-600">
-                {formatTeamUrl(teamUrl, baseUrl)}
-              </div>
-
-              <Section className="mt-6">
-                <Text className="my-0 text-sm">
-                  <Trans>
-                    By accepting this request, you will be granting <strong>{teamName}</strong>{' '}
-                    access to:
-                  </Trans>
-                </Text>
-
-                <ul className="mb-0 mt-2">
-                  <li className="text-sm">
-                    <Trans>View all documents sent to and from this email address</Trans>
-                  </li>
-                  <li className="mt-1 text-sm">
-                    <Trans>Allow document recipients to reply directly to this email address</Trans>
-                  </li>
-                  <li className="mt-1 text-sm">
-                    <Trans>Send documents on behalf of the team using the email address</Trans>
-                  </li>
-                </ul>
-
-                <Text className="mt-2 text-sm">
-                  <Trans>
-                    You can revoke access at any time in your team settings on Documenso{' '}
-                    <Link href={`${baseUrl}/settings/teams`}>here</Link>.
-                  </Trans>
-                </Text>
-              </Section>
-
-              <Section className="mb-6 mt-8 text-center">
-                <Button
-                  className="inline-flex items-center justify-center rounded-lg bg-documenso-500 px-6 py-3 text-center text-sm font-medium text-black no-underline"
-                  href={`${baseUrl}/team/verify/email/${token}`}
-                >
-                  <Trans>Accept</Trans>
-                </Button>
-              </Section>
-            </Section>
-
-            <Text className="text-center text-xs text-slate-500">
-              <Trans>Link expires in 1 hour.</Trans>
-            </Text>
-          </Container>
-
-          <Hr className="mx-auto mt-12 max-w-xl" />
-
-          <Container className="mx-auto max-w-xl">
-            <TemplateFooter isDocument={false} />
-          </Container>
-        </Section>
-      </Body>
-    </Html>
+      <EmailMutedNote>
+        <Trans>
+          El enlace expira en 1 hora. Puedes revocar el acceso desde los ajustes del equipo.
+        </Trans>
+      </EmailMutedNote>
+    </TemplateBaseLayout>
   );
 };
 
-export default ConfirmTeamEmailTemplate;
+export default withPreviewI18n(ConfirmTeamEmailTemplate);

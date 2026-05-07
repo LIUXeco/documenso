@@ -23,7 +23,7 @@ export function DataTablePagination<TData>({
 }: DataTablePaginationProps<TData>) {
   return (
     <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-4 px-2">
-      <div className="flex-1 text-sm text-muted-foreground">
+      <div className="flex-1 text-sm font-normal text-muted-foreground">
         {match(additionalInformation)
           .with('SelectedCount', () => (
             <span>
@@ -60,7 +60,7 @@ export function DataTablePagination<TData>({
       </div>
 
       <div className="flex items-center gap-x-2">
-        <p className="whitespace-nowrap text-sm font-medium">
+        <p className="whitespace-nowrap text-sm font-normal">
           <Trans>Rows per page</Trans>
         </p>
         <Select
@@ -69,12 +69,12 @@ export function DataTablePagination<TData>({
             table.setPageSize(Number(value));
           }}
         >
-          <SelectTrigger className="h-8 w-[70px]">
+          <SelectTrigger className="h-8 w-[70px] font-normal">
             <SelectValue placeholder={table.getState().pagination.pageSize} />
           </SelectTrigger>
           <SelectContent side="top">
             {[10, 20, 30, 40, 50].map((pageSize) => (
-              <SelectItem key={pageSize} value={`${pageSize}`}>
+              <SelectItem key={pageSize} value={`${pageSize}`} className="font-normal">
                 {pageSize}
               </SelectItem>
             ))}
@@ -82,7 +82,7 @@ export function DataTablePagination<TData>({
         </Select>
       </div>
       <div className="flex flex-wrap items-center gap-x-6 gap-y-4 lg:gap-x-8">
-        <div className="flex items-center text-sm font-medium md:justify-center">
+        <div className="flex items-center text-sm font-normal md:justify-center">
           <Trans>
             Page {table.getState().pagination.pageIndex + 1} of {table.getPageCount() || 1}
           </Trans>

@@ -49,6 +49,9 @@ export const run = async ({
           teamEmail: true,
           name: true,
           url: true,
+          organisation: {
+            select: { name: true },
+          },
         },
       },
     },
@@ -91,6 +94,7 @@ export const run = async ({
           inviterEmail: documentOwner.email,
           assetBaseUrl: NEXT_PUBLIC_WEBAPP_URL(),
           cancellationReason: cancellationReason || 'The document has been cancelled.',
+          organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
         });
 
         const [html, text] = await Promise.all([

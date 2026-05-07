@@ -65,7 +65,7 @@ export const EnvelopeSignerHeader = () => {
             {envelope.title}
           </h1>
 
-          <Badge>
+          <Badge className="border-0 bg-[#0073EC]/10 text-[#0073EC] ring-[#0073EC]/20">
             {match(recipient.role)
               .with(RecipientRole.VIEWER, () => <Trans>Viewer</Trans>)
               .with(RecipientRole.SIGNER, () => <Trans>Signer</Trans>)
