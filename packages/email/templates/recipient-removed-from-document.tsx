@@ -2,7 +2,6 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
-import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
   EmailHeading,
   EmailMutedNote,
@@ -46,4 +45,4 @@ export const RecipientRemovedFromDocumentTemplate = ({
   );
 };
 
-export default withPreviewI18n(RecipientRemovedFromDocumentTemplate);
+export default RecipientRemovedFromDocumentTemplate;

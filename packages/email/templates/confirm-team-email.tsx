@@ -3,7 +3,6 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
 import { Button, Section } from '../components';
-import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
   EmailHeading,
   EmailMutedNote,
@@ -78,4 +77,4 @@ export const ConfirmTeamEmailTemplate = ({
   );
 };
 
-export default withPreviewI18n(ConfirmTeamEmailTemplate);
+export default ConfirmTeamEmailTemplate;

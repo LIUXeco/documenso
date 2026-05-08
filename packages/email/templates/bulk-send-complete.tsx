@@ -3,7 +3,6 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
 import { Section, Text } from '../components';
-import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
   EmailHeading,
   EmailParagraph,
@@ -92,4 +91,4 @@ export const BulkSendCompleteEmail = ({
   );
 };
 
-export default withPreviewI18n(BulkSendCompleteEmail);
+export default BulkSendCompleteEmail;

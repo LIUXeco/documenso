@@ -124,7 +124,6 @@ export const OrgMenuSwitcher = () => {
             avatarSrc={dropdownMenuAvatarText.avatarSrc}
             avatarFallback={dropdownMenuAvatarText.avatarFallback}
             primaryText={dropdownMenuAvatarText.primaryText}
-            secondaryText={dropdownMenuAvatarText.secondaryText}
             rightSideComponent={
               <ChevronsUpDown className="ml-auto h-4 w-4 text-muted-foreground" />
             }

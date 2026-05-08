@@ -3,7 +3,6 @@ import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
 import { Link } from '../components';
-import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
   EmailHeading,
   EmailMutedNote,
@@ -49,4 +48,4 @@ export const ResetPasswordTemplate = ({
   );
 };
 
-export default withPreviewI18n(ResetPasswordTemplate);
+export default ResetPasswordTemplate;

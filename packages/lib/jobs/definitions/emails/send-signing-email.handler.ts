@@ -179,7 +179,6 @@ export const run = async ({
     organisationType,
     teamName: team?.name,
     organisationName: team?.organisation?.name ?? team?.name,
-    teamEmail: team?.teamEmail?.email,
     includeSenderDetails: settings.includeSenderDetails,
   });
 

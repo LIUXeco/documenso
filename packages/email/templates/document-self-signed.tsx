@@ -2,7 +2,6 @@ import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 
-import { withPreviewI18n } from '../preview-i18n-wrapper';
 import {
   EmailHeading,
   EmailParagraph,
@@ -40,4 +39,4 @@ export const DocumentSelfSignedEmailTemplate = ({
   );
 };
 
-export default withPreviewI18n(DocumentSelfSignedEmailTemplate);
+export default DocumentSelfSignedEmailTemplate;

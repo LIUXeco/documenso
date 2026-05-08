@@ -132,6 +132,7 @@ type HandleDocumentOwnerDeleteOptions = {
   envelope: Envelope & {
     recipients: Recipient[];
     documentMeta: DocumentMeta | null;
+    team: { name: string; organisation: { name: string } | null } | null;
   };
   user: User;
   requestMetadata: ApiRequestMetadata;
