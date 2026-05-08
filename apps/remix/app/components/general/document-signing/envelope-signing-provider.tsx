@@ -1,5 +1,6 @@
 import { createContext, useContext, useMemo, useState } from 'react';
 
+import { useLingui } from '@lingui/react/macro';
 import {
   EnvelopeType,
   type Field,
@@ -24,6 +25,7 @@ import {
 import { extractFieldInsertionValues } from '@documenso/lib/utils/envelope-signing';
 import { trpc } from '@documenso/trpc/react';
 import type { TSignEnvelopeFieldValue } from '@documenso/trpc/server/envelope-router/sign-envelope-field.types';
+import { useToast } from '@documenso/ui/primitives/use-toast';
 
 export type EnvelopeSigningContextValue = {
   isDirectTemplate: boolean;
@@ -152,8 +154,24 @@ export const EnvelopeSigningProvider = ({
 
   const isDirectTemplate = envelope.type === EnvelopeType.TEMPLATE;
 
+  const { t } = useLingui();
+  const { toast } = useToast();
+
   const { mutateAsync: signEnvelopeField } = trpc.envelope.field.sign.useMutation({
     ...DO_NOT_INVALIDATE_QUERY_ON_MUTATION,
+    onError: (err) => {
+      // The signing canvas was firing several field clicks as `void signField(...)`,
+      // so a network/server failure used to disappear into an unhandled promise
+      // rejection. Surface it to the user with a toast so they know to retry
+      // and don't think a click that didn't take has been persisted.
+      console.error('signField failed', err);
+      toast({
+        title: t`No se pudo guardar la firma`,
+        description: t`Hubo un problema al registrar el campo. Por favor inténtelo de nuevo.`,
+        variant: 'destructive',
+        duration: 6000,
+      });
+    },
     onSuccess: (data) => {
       setEnvelopeData((prev) => ({
         ...prev,

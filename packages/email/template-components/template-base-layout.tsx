@@ -1,5 +1,7 @@
 import * as React from 'react';
 
+import { useLingui } from '@lingui/react';
+
 import { Body, Container, Head, Hr, Html, Img, Link, Preview, Section, Text } from '../components';
 
 const LIUX_LOGO =
@@ -30,11 +32,18 @@ const POWERED_BY_GRADIENT: Array<{ char: string; color: string }> = [
 export type TemplateBaseLayoutProps = {
   previewText: string;
   children: React.ReactNode;
+  lang?: string;
 };
 
-export const TemplateBaseLayout = ({ previewText, children }: TemplateBaseLayoutProps) => {
+export const TemplateBaseLayout = ({ previewText, children, lang }: TemplateBaseLayoutProps) => {
+  // Read the active Lingui locale set by renderEmailWithI18N. This makes the
+  // <Html lang> attribute follow the recipient's preferred language without
+  // having to plumb lang through every template's call site.
+  const { i18n } = useLingui();
+  const resolvedLang = lang ?? i18n.locale ?? 'en';
+
   return (
-    <Html lang="es">
+    <Html lang={resolvedLang}>
       <Head>
         <style>{`
           .logo-dark { display: none !important; }
