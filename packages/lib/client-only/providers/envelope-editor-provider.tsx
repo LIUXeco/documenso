@@ -22,7 +22,7 @@ import type { TDocumentEmailSettings } from '../../types/document-email';
 import { formatDocumentsPath, formatTemplatesPath } from '../../utils/teams';
 import { useEditorFields } from '../hooks/use-editor-fields';
 import type { TLocalField } from '../hooks/use-editor-fields';
-import { useEditorRecipients } from '../hooks/use-editor-recipients';
+import { ZEditorRecipientsFormSchema, useEditorRecipients } from '../hooks/use-editor-recipients';
 import { useEnvelopeAutosave } from '../hooks/use-envelope-autosave';
 
 export type EnvelopeEditorStep = 'upload' | 'addFields' | 'preview';
@@ -164,6 +164,22 @@ export const EnvelopeEditorProvider = ({
       // Without this, an enqueued save resends recipients without ids and
       // Prisma upsert(id=-1) creates duplicate rows.
       const formSigners = editorRecipients.form.getValues('signers');
+
+      // The form values can drift to invalid state between trigger and fire
+      // (e.g. user starts typing a second recipient mid-debounce). The
+      // trigger-time effect already gates on schema validity, but reading
+      // fresh data at fire time means we have to re-validate or the server
+      // rejects with "Invalid email" and the user sees a misleading
+      // "no se han guardado los cambios" toast. Skip silently; the next
+      // valid trigger will pick up the correct state.
+      const formValidation = ZEditorRecipientsFormSchema.safeParse(
+        editorRecipients.form.getValues(),
+      );
+
+      if (!formValidation.success) {
+        return;
+      }
+
       const localRecipients = formSigners.map((signer) => ({
         id: signer.id,
         email: signer.email,
