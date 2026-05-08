@@ -12,7 +12,6 @@
     "index.ts"
   ],
   "scripts": {
-    "dev": "email dev --port 3002 --dir templates",
     "clean": "rimraf node_modules"
   },
   "dependencies": {
@@ -43,7 +42,6 @@
   },
   "devDependencies": {
     "@documenso/tsconfig": "*",
-    "@react-email/preview-server": "^5.0.6",
     "@types/nodemailer": "^8.0.0"
   }
 }
