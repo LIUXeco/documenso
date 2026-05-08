@@ -86,6 +86,7 @@ export const SignUpForm = ({
   const [searchParams] = useSearchParams();
 
   const utmSrc = searchParams.get('utm_source') ?? null;
+  const inviteToken = searchParams.get('inviteToken') ?? undefined;
 
   const turnstileSiteKey = env('NEXT_PUBLIC_TURNSTILE_SITE_KEY');
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -115,6 +116,9 @@ export const SignUpForm = ({
         password,
         signature,
         captchaToken: captchaToken ?? undefined,
+        // Forwarded so the server can authorise registration even when
+        // NEXT_PUBLIC_DISABLE_SIGNUP=true (only invitees come through).
+        inviteToken,
       });
 
       await navigate(returnTo ? returnTo : '/unverified-account');
@@ -212,10 +216,7 @@ export const SignUpForm = ({
           </h1>
 
           <p className="mt-2 text-xs text-muted-foreground md:text-sm">
-            <Trans>
-              Create your account and start using state-of-the-art document signing. Open and
-              beautiful signing is within your grasp.
-            </Trans>
+            <Trans>Crea tu cuenta para empezar a firmar documentos.</Trans>
           </p>
         </div>
 

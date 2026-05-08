@@ -42,6 +42,10 @@ export const ZSignUpSchema = z.object({
   password: ZPasswordSchema,
   signature: z.string().nullish(),
   captchaToken: z.string().trim().optional(),
+  // When NEXT_PUBLIC_DISABLE_SIGNUP is true, the signup endpoint will only
+  // accept requests that carry a still-valid OrganisationMemberInvite token.
+  // Forwarded by the signup page from /organisation/invite/<token>.
+  inviteToken: z.string().trim().optional(),
 });
 
 export type TSignUpSchema = z.infer<typeof ZSignUpSchema>;

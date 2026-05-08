@@ -188,13 +188,28 @@ export const emailPasswordRoute = new Hono<HonoAuthContext>()
   .post('/signup', sValidator('json', ZSignUpSchema), async (c) => {
     const requestMetadata = c.get('requestMetadata');
 
-    if (env('NEXT_PUBLIC_DISABLE_SIGNUP') === 'true') {
-      throw new AppError(AuthenticationErrorCode.SignupDisabled, {
-        statusCode: 400,
-      });
-    }
+    const { name, email, password, signature, captchaToken, inviteToken } = c.req.valid('json');
 
-    const { name, email, password, signature, captchaToken } = c.req.valid('json');
+    // Closed-registration is gated by NEXT_PUBLIC_DISABLE_SIGNUP, but invitees
+    // arriving from /organisation/invite/<token> must still be able to create
+    // an account. Allow the request through when it carries a still-valid
+    // invite whose email matches the one being registered.
+    if (env('NEXT_PUBLIC_DISABLE_SIGNUP') === 'true') {
+      const invite = inviteToken
+        ? await prisma.organisationMemberInvite.findUnique({
+            where: { token: inviteToken },
+            select: { email: true },
+          })
+        : null;
+
+      const isValidInvite = invite && invite.email.toLowerCase() === email.toLowerCase();
+
+      if (!isValidInvite) {
+        throw new AppError(AuthenticationErrorCode.SignupDisabled, {
+          statusCode: 400,
+        });
+      }
+    }
 
     const signupLimitResult = await signupRateLimit.check({
       ip: requestMetadata.ipAddress ?? 'unknown',
