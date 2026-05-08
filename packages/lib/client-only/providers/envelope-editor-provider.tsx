@@ -246,7 +246,7 @@ export const EnvelopeEditorProvider = ({
     // so by here any persisted ids from the previous response are already
     // synced via setFieldId. Using _staleLocalFields would resend fields
     // without their ids and trigger Prisma upsert(id=-1) → duplicate rows.
-    const localFields = editorFields.form.getValues().fields;
+    const localFields = editorFields.getCurrentFields();
 
     try {
       let fields: TSetEnvelopeFieldsResponse['data'] = [];

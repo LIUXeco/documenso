@@ -43,6 +43,9 @@ type EditorFieldsProps = {
 
 type UseEditorFieldsResponse = {
   localFields: TLocalField[];
+  // Imperative getter for the freshest form snapshot. Use inside async
+  // callbacks where `localFields` is captured stale in a closure.
+  getCurrentFields: () => TLocalField[];
 
   // Selected field
   selectedField: TLocalField | undefined;
@@ -291,9 +294,12 @@ export const useEditorFields = ({
     form.reset(generateDefaultValues(fields));
   };
 
+  const getCurrentFields = (): TLocalField[] => form.getValues().fields;
+
   return {
     // Core state
     localFields,
+    getCurrentFields,
 
     // Field operations
     addField,
