@@ -40,8 +40,7 @@ export const OrganisationInviteEmailTemplate = ({
 
       <EmailParagraph>
         <Trans>
-          <strong>{senderName}</strong> te ha invitado a unirte a la organización{' '}
-          <strong>{organisationName}</strong>.
+          <strong>{organisationName}</strong> te ha invitado a unirte a la organización.
         </Trans>
       </EmailParagraph>
 
