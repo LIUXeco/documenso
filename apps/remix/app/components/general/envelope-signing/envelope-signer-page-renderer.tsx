@@ -138,7 +138,13 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
     const fieldToRender = ZFullFieldSchema.parse(unparsedField);
 
-    if (fieldToRender.recipientId === recipient.id) {
+    // Live preview: render the sidebar-typed value inside the field tile so the
+    // user can see what they'll be inserting. We deliberately do NOT mutate
+    // `inserted` here — that flag must stay false until the user actually
+    // clicks the field, otherwise the "X Campos Restantes" counter and
+    // "Siguiente campo" navigator desync (the visual says done, but the field
+    // isn't persisted to the DB yet).
+    if (fieldToRender.recipientId === recipient.id && !fieldToRender.inserted) {
       let previewText: string | null = null;
 
       if (fieldToRender.type === FieldType.NAME && fullName) {
@@ -151,9 +157,6 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
 
       if (previewText && previewText !== fieldToRender.customText) {
         fieldToRender.customText = previewText;
-        if (!fieldToRender.inserted) {
-          fieldToRender.inserted = true;
-        }
       }
     }
 
@@ -161,6 +164,7 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
     if (
       fieldToRender.recipientId === recipient.id &&
       fieldToRender.type === FieldType.SIGNATURE &&
+      !fieldToRender.inserted &&
       signature
     ) {
       const isImage = signature.startsWith('data:image');
@@ -173,9 +177,6 @@ export const EnvelopeSignerPageRenderer = ({ pageData }: { pageData: PageRenderD
           signatureImageAsBase64: isImage ? signature : null,
           typedSignature: isImage ? null : signature,
         } as Signature;
-        if (!fieldToRender.inserted) {
-          fieldToRender.inserted = true;
-        }
       }
     }
 

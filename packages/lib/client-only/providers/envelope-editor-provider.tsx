@@ -181,6 +181,10 @@ export const EnvelopeEditorProvider = ({
         ),
       }));
 
+      // Backfill persisted ids onto the recipients form so subsequent autosaves
+      // update the existing rows instead of creating duplicates via upsert(id=-1).
+      editorRecipients.syncPersistedIds(recipients);
+
       // Reset the local fields to ensure deleted recipient fields are removed.
       editorFields.resetForm(
         envelope.fields.filter((field) =>

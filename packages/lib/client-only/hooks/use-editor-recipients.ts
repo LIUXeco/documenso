@@ -46,6 +46,7 @@ type ResetFormOptions = {
 type UseEditorRecipientsResponse = {
   form: UseFormReturn<TEditorRecipientsFormSchema>;
   resetForm: (options?: ResetFormOptions) => void;
+  syncPersistedIds: (persistedRecipients: TEditorEnvelope['recipients']) => void;
 };
 
 export const useEditorRecipients = ({
@@ -98,8 +99,41 @@ export const useEditorRecipients = ({
     form.reset(generateDefaultValues(options));
   };
 
+  // Backfills the persisted ids onto the local form values without resetting
+  // any in-flight user edits. Matches by index since the server preserves the
+  // request order in its response. Without this, freshly-created recipients
+  // keep `id: undefined` in the form, so the next autosave hits the server
+  // again as a "new" recipient and Prisma upsert(id=-1) creates duplicate rows.
+  const syncPersistedIds = (persistedRecipients: TEditorEnvelope['recipients']) => {
+    const currentSigners = form.getValues('signers');
+
+    if (currentSigners.length !== persistedRecipients.length) {
+      return;
+    }
+
+    let didChange = false;
+
+    const nextSigners = currentSigners.map((signer, index) => {
+      const persisted = persistedRecipients[index];
+      if (!persisted || signer.id === persisted.id) {
+        return signer;
+      }
+      didChange = true;
+      return {
+        ...signer,
+        id: persisted.id,
+        formId: String(persisted.id),
+      };
+    });
+
+    if (didChange) {
+      form.setValue('signers', nextSigners, { shouldDirty: false, shouldTouch: false });
+    }
+  };
+
   return {
     form,
     resetForm,
+    syncPersistedIds,
   };
 };
