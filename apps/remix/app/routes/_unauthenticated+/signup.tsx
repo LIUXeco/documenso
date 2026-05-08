@@ -8,6 +8,7 @@ import {
 } from '@documenso/lib/constants/auth';
 import { env } from '@documenso/lib/utils/env';
 import { isValidReturnTo, normalizeReturnTo } from '@documenso/lib/utils/is-valid-return-to';
+import { prisma } from '@documenso/prisma';
 
 import { SignUpForm } from '~/components/forms/signup';
 import { appMetaTags } from '~/utils/meta';
@@ -18,19 +19,35 @@ export function meta() {
   return appMetaTags(msg`Sign Up`);
 }
 
-export function loader({ request }: Route.LoaderArgs) {
+export async function loader({ request }: Route.LoaderArgs) {
   const NEXT_PUBLIC_DISABLE_SIGNUP = env('NEXT_PUBLIC_DISABLE_SIGNUP');
+
+  const url = new URL(request.url);
+  const inviteToken = url.searchParams.get('inviteToken') ?? undefined;
 
   // SSR env variables.
   const isGoogleSSOEnabled = IS_GOOGLE_SSO_ENABLED;
   const isMicrosoftSSOEnabled = IS_MICROSOFT_SSO_ENABLED;
   const isOIDCSSOEnabled = IS_OIDC_SSO_ENABLED;
 
+  // Open registration is gated by NEXT_PUBLIC_DISABLE_SIGNUP, but invitees
+  // arriving via /organisation/invite/<token> still need to create an account.
+  // Allow the signup flow when the request carries a still-valid invite token;
+  // otherwise fall back to the redirect.
   if (NEXT_PUBLIC_DISABLE_SIGNUP === 'true') {
-    throw redirect('/signin');
+    const invite = inviteToken
+      ? await prisma.organisationMemberInvite.findUnique({
+          where: { token: inviteToken },
+          select: { id: true },
+        })
+      : null;
+
+    if (!invite) {
+      throw redirect('/signin');
+    }
   }
 
-  let returnTo = new URL(request.url).searchParams.get('returnTo') ?? undefined;
+  let returnTo = url.searchParams.get('returnTo') ?? undefined;
 
   returnTo = isValidReturnTo(returnTo) ? normalizeReturnTo(returnTo) : undefined;
 

@@ -60,6 +60,7 @@ export async function loader({ params, request }: Route.LoaderArgs) {
       state: 'LoginRequired',
       email: organisationMemberInvite.email,
       organisationName: organisationMemberInvite.organisation.name,
+      inviteToken: organisationMemberInvite.token,
     } as const;
   }
 
@@ -84,7 +85,7 @@ export default function AcceptInvitationPage({ loaderData }: Route.ComponentProp
             <Trans>Invalid token</Trans>
           </h1>
 
-          <p className="text-muted-foreground mb-4 mt-2 text-sm">
+          <p className="mb-4 mt-2 text-sm text-muted-foreground">
             <Trans>
               This token is invalid or has expired. Please contact your team for a new invitation.
             </Trans>
@@ -104,23 +105,26 @@ export default function AcceptInvitationPage({ loaderData }: Route.ComponentProp
     return (
       <div>
         <h1 className="text-4xl font-semibold">
-          <Trans>Organisation invitation</Trans>
+          <Trans>Invitación</Trans>
         </h1>
 
-        <p className="text-muted-foreground mt-2 text-sm">
+        <p className="mt-2 text-sm text-muted-foreground">
           <Trans>
-            You have been invited by <strong>{data.organisationName}</strong> to join their
-            organisation.
+            <strong>{data.organisationName}</strong> te ha invitado a unirte a la organización.
           </Trans>
         </p>
 
-        <p className="text-muted-foreground mb-4 mt-1 text-sm">
-          <Trans>To accept this invitation you must create an account.</Trans>
+        <p className="mb-4 mt-1 text-sm text-muted-foreground">
+          <Trans>Para aceptar esta invitación debes crear una cuenta.</Trans>
         </p>
 
         <Button asChild>
-          <Link to={`/signup#email=${encodeURIComponent(data.email)}`}>
-            <Trans>Create account</Trans>
+          {/* Forwards the inviteToken so signup can authorise the registration
+              even when NEXT_PUBLIC_DISABLE_SIGNUP is true. */}
+          <Link
+            to={`/signup?inviteToken=${encodeURIComponent(data.inviteToken)}#email=${encodeURIComponent(data.email)}`}
+          >
+            <Trans>Crear cuenta</Trans>
           </Link>
         </Button>
       </div>
@@ -133,7 +137,7 @@ export default function AcceptInvitationPage({ loaderData }: Route.ComponentProp
         <Trans>Invitation accepted!</Trans>
       </h1>
 
-      <p className="text-muted-foreground mb-4 mt-2 text-sm">
+      <p className="mb-4 mt-2 text-sm text-muted-foreground">
         <Trans>
           You have accepted an invitation from <strong>{data.organisationName}</strong> to join
           their organisation.

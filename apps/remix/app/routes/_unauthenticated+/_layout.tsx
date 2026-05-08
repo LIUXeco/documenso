@@ -12,7 +12,7 @@ export default function Layout() {
   const [languageOpen, setLanguageOpen] = useState(false);
 
   return (
-    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-[#F2F2F2] px-4 py-12 md:p-12 lg:p-24">
+    <main className="relative flex min-h-screen flex-col items-center justify-center overflow-hidden bg-white px-4 py-12 md:p-12 lg:p-24 dark:bg-background">
       <Outlet />
 
       <button
