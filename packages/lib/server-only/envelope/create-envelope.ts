@@ -321,7 +321,7 @@ export const createEnvelope = async ({
         internalVersion,
         type,
         title,
-        qrToken: prefixedId('qr'),
+        qrToken: prefixedId('qr', 32),
         externalId,
         envelopeItems: {
           createMany: {

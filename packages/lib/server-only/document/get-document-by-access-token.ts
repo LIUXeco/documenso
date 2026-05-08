@@ -8,6 +8,15 @@ export type GetDocumentByAccessTokenOptions = {
   token: string;
 };
 
+// QR/share links on the certificate PDF are publicly accessible by design
+// (industry standard: DocuSign, Adobe, HelloSign all do this). To narrow the
+// exposure window if a certificate is forwarded or leaks, we expire the link
+// after this many days from the seal date. After that, /share/qr_xxx 404s.
+export const QR_SHARE_LINK_TTL_DAYS = 30;
+
+export const getQrShareLinkTtlCutoff = () =>
+  new Date(Date.now() - QR_SHARE_LINK_TTL_DAYS * 24 * 60 * 60 * 1000);
+
 export const getDocumentByAccessToken = async ({ token }: GetDocumentByAccessTokenOptions) => {
   if (!token) {
     throw new Error('Missing token');
@@ -18,6 +27,9 @@ export const getDocumentByAccessToken = async ({ token }: GetDocumentByAccessTok
       type: EnvelopeType.DOCUMENT,
       status: DocumentStatus.COMPLETED,
       qrToken: token,
+      completedAt: {
+        gte: getQrShareLinkTtlCutoff(),
+      },
     },
     // Do not provide extra information that is not needed.
     select: {

@@ -167,7 +167,10 @@ export const run = async ({
           id: envelope.id,
         },
         data: {
-          qrToken: prefixedId('qr'),
+          // 32-char token (~192 bits) — already unguessable at 16, this is
+          // belt-and-suspenders since the link is the only access control
+          // on the public /share view.
+          qrToken: prefixedId('qr', 32),
         },
       });
     }

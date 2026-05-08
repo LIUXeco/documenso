@@ -5,6 +5,7 @@ import { Hono } from 'hono';
 import { getOptionalSession } from '@documenso/auth/server/lib/utils/get-session';
 import { APP_DOCUMENT_UPLOAD_SIZE_LIMIT } from '@documenso/lib/constants/app';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
+import { getQrShareLinkTtlCutoff } from '@documenso/lib/server-only/document/get-document-by-access-token';
 import { verifyEmbeddingPresignToken } from '@documenso/lib/server-only/embedding-presign/verify-embedding-presign-token';
 import { putNormalizedPdfFileServerSide } from '@documenso/lib/universal/upload/put-file.server';
 import { getPresignPostUrl } from '@documenso/lib/universal/upload/server-actions';
@@ -265,10 +266,17 @@ export const filesRoute = new Hono<HonoEnv>()
       };
 
       if (token.startsWith('qr_')) {
+        // Match the TTL applied by getDocumentByAccessToken so the public
+        // QR/share link and the file endpoints expire together. Without this
+        // a leaked certificate could still be used to fetch the PDF after
+        // the share view has stopped resolving.
         envelopeWhereQuery = {
           id: envelopeItemId,
           envelope: {
             qrToken: token,
+            completedAt: {
+              gte: getQrShareLinkTtlCutoff(),
+            },
           },
         };
       }
@@ -321,6 +329,9 @@ export const filesRoute = new Hono<HonoEnv>()
           id: envelopeItemId,
           envelope: {
             qrToken: token,
+            completedAt: {
+              gte: getQrShareLinkTtlCutoff(),
+            },
           },
         };
       }

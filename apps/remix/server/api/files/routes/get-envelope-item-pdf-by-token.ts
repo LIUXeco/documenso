@@ -3,6 +3,7 @@ import type { Prisma } from '@prisma/client';
 import { Hono } from 'hono';
 import { z } from 'zod';
 
+import { getQrShareLinkTtlCutoff } from '@documenso/lib/server-only/document/get-document-by-access-token';
 import { prisma } from '@documenso/prisma';
 
 import type { HonoEnv } from '../../../router';
@@ -45,7 +46,9 @@ route.get(
       },
     };
 
-    // QR token based query.
+    // QR token based query. Mirrors the TTL applied by
+    // getDocumentByAccessToken so the share/download surfaces all stop
+    // resolving together once the link has expired.
     if (token.startsWith('qr_')) {
       envelopeItemWhereQuery = {
         id: envelopeItemId,
@@ -53,6 +56,9 @@ route.get(
         envelope: {
           id: envelopeId,
           qrToken: token,
+          completedAt: {
+            gte: getQrShareLinkTtlCutoff(),
+          },
         },
       };
     }
