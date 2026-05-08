@@ -19,6 +19,16 @@ export function useEnvelopeAutosave<T>(saveFn: (data: T) => Promise<void>, delay
 
       // eslint-disable-next-line @typescript-eslint/no-misused-promises
       timeoutRef.current = setTimeout(async () => {
+        // Serialize saves: wait for any in-flight save to settle before
+        // starting the next one. Without this, two overlapping saves can
+        // both send a "new" entity (no id) and Prisma upsert(id=-1) creates
+        // duplicate rows in the DB. After the in-flight save settles, the
+        // caller has had a chance to backfill persisted ids onto the form
+        // via setFieldId / syncPersistedIds.
+        while (pendingPromiseRef.current) {
+          await pendingPromiseRef.current;
+        }
+
         if (!lastArgsRef.current) {
           return;
         }

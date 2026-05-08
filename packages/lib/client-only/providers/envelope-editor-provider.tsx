@@ -157,55 +157,72 @@ export const EnvelopeEditorProvider = ({
     triggerSave: setRecipientsDebounced,
     flush: flushSetRecipients,
     isPending: isRecipientsMutationPending,
-  } = useEnvelopeAutosave(async (localRecipients: TSetEnvelopeRecipientsRequest['recipients']) => {
-    try {
-      let recipients: TEditorEnvelope['recipients'] = [];
-
-      if (!isEmbedded) {
-        const response = await setRecipientsMutation.mutateAsync({
-          envelopeId: envelope.id,
-          envelopeType: envelope.type,
-          recipients: localRecipients,
-        });
-
-        recipients = response.data;
-      } else {
-        recipients = mapLocalRecipientsToRecipients({ envelope, localRecipients });
-      }
-
-      setEnvelope((prev) => ({
-        ...prev,
-        recipients,
-        fields: prev.fields.filter((field) =>
-          recipients.some((recipient) => recipient.id === field.recipientId),
-        ),
+  } = useEnvelopeAutosave(
+    async (_staleLocalRecipients: TSetEnvelopeRecipientsRequest['recipients']) => {
+      // Re-read the form at fire time so we pick up any ids that were
+      // backfilled by syncPersistedIds after the previous save settled.
+      // Without this, an enqueued save resends recipients without ids and
+      // Prisma upsert(id=-1) creates duplicate rows.
+      const formSigners = editorRecipients.form.getValues('signers');
+      const localRecipients = formSigners.map((signer) => ({
+        id: signer.id,
+        email: signer.email,
+        name: signer.name,
+        role: signer.role,
+        signingOrder: signer.signingOrder,
+        actionAuth: signer.actionAuth,
       }));
 
-      // Backfill persisted ids onto the recipients form so subsequent autosaves
-      // update the existing rows instead of creating duplicates via upsert(id=-1).
-      editorRecipients.syncPersistedIds(recipients);
+      try {
+        let recipients: TEditorEnvelope['recipients'] = [];
 
-      // Reset the local fields to ensure deleted recipient fields are removed.
-      editorFields.resetForm(
-        envelope.fields.filter((field) =>
-          recipients.some((recipient) => recipient.id === field.recipientId),
-        ),
-      );
+        if (!isEmbedded) {
+          const response = await setRecipientsMutation.mutateAsync({
+            envelopeId: envelope.id,
+            envelopeType: envelope.type,
+            recipients: localRecipients,
+          });
 
-      setAutosaveError(false);
-    } catch (err) {
-      console.error(err);
+          recipients = response.data;
+        } else {
+          recipients = mapLocalRecipientsToRecipients({ envelope, localRecipients });
+        }
 
-      setAutosaveError(true);
+        setEnvelope((prev) => ({
+          ...prev,
+          recipients,
+          fields: prev.fields.filter((field) =>
+            recipients.some((recipient) => recipient.id === field.recipientId),
+          ),
+        }));
 
-      toast({
-        title: t`Save failed`,
-        description: t`We encountered an error while attempting to save your changes. Your changes cannot be saved at this time.`,
-        variant: 'destructive',
-        duration: 7500,
-      });
-    }
-  }, 1000);
+        // Backfill persisted ids onto the recipients form so subsequent autosaves
+        // update the existing rows instead of creating duplicates via upsert(id=-1).
+        editorRecipients.syncPersistedIds(recipients);
+
+        // Reset the local fields to ensure deleted recipient fields are removed.
+        editorFields.resetForm(
+          envelope.fields.filter((field) =>
+            recipients.some((recipient) => recipient.id === field.recipientId),
+          ),
+        );
+
+        setAutosaveError(false);
+      } catch (err) {
+        console.error(err);
+
+        setAutosaveError(true);
+
+        toast({
+          title: t`Save failed`,
+          description: t`We encountered an error while attempting to save your changes. Your changes cannot be saved at this time.`,
+          variant: 'destructive',
+          duration: 7500,
+        });
+      }
+    },
+    1000,
+  );
 
   const setRecipientsAsync = async (
     localRecipients: TSetEnvelopeRecipientsRequest['recipients'],
@@ -223,7 +240,14 @@ export const EnvelopeEditorProvider = ({
     triggerSave: setFieldsDebounced,
     flush: flushSetFields,
     isPending: isFieldsMutationPending,
-  } = useEnvelopeAutosave(async (localFields: TLocalField[]) => {
+  } = useEnvelopeAutosave(async (_staleLocalFields: TLocalField[]) => {
+    // Re-read the form at fire time. The autosave hook now waits for
+    // in-flight saves before starting the next one (see useEnvelopeAutosave),
+    // so by here any persisted ids from the previous response are already
+    // synced via setFieldId. Using _staleLocalFields would resend fields
+    // without their ids and trigger Prisma upsert(id=-1) → duplicate rows.
+    const localFields = editorFields.form.getValues().fields;
+
     try {
       let fields: TSetEnvelopeFieldsResponse['data'] = [];
 
