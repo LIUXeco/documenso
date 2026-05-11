@@ -10,6 +10,7 @@ import { useSession } from '@documenso/lib/client-only/providers/session';
 import { ORGANISATION_MEMBER_ROLE_MAP } from '@documenso/lib/constants/organisations-translations';
 import { TEAM_MEMBER_ROLE_MAP } from '@documenso/lib/constants/teams-translations';
 import { formatAvatarUrl } from '@documenso/lib/utils/avatars';
+import { isAdmin } from '@documenso/lib/utils/is-admin';
 import { canExecuteOrganisationAction } from '@documenso/lib/utils/organisations';
 import { canExecuteTeamAction } from '@documenso/lib/utils/teams';
 import { Avatar, AvatarFallback, AvatarImage } from '@documenso/ui/primitives/avatar';
@@ -66,20 +67,40 @@ export default function DashboardPage() {
           <div className="mb-12 mt-6 flex flex-col items-center justify-center rounded-lg border py-32">
             <Building2Icon className="h-10 w-10" />
 
-            <div className="mt-2 flex flex-col items-center gap-0.5">
-              <p className="font-semibold">
-                <Trans>No organisations found</Trans>
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <Trans>Create an organisation to get started.</Trans>
-              </p>
-            </div>
+            {isAdmin(user) ? (
+              <>
+                <div className="mt-2 flex flex-col items-center gap-0.5">
+                  <p className="font-semibold">
+                    <Trans>No organisations found</Trans>
+                  </p>
+                  <p className="text-sm text-muted-foreground">
+                    <Trans>Create an organisation to get started.</Trans>
+                  </p>
+                </div>
 
-            <Button asChild className="mt-4" variant="outline">
-              <Link to="/settings/organisations?action=add-organisation">
-                <Trans>Create organisation</Trans>
-              </Link>
-            </Button>
+                <Button asChild className="mt-4" variant="outline">
+                  <Link to="/settings/organisations?action=add-organisation">
+                    <Trans>Create organisation</Trans>
+                  </Link>
+                </Button>
+              </>
+            ) : (
+              // Non-admin users can't create organisations themselves. They
+              // land here only if their invite was revoked or they were
+              // removed from every org — point them at their admin instead
+              // of dangling a button that the backend would reject.
+              <div className="mt-2 flex max-w-md flex-col items-center gap-0.5 text-center">
+                <p className="font-semibold">
+                  <Trans>No tienes ninguna organización asignada</Trans>
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  <Trans>
+                    Pide a un administrador de LIUX que te invite a la organización para empezar a
+                    firmar documentos.
+                  </Trans>
+                </p>
+              </div>
+            )}
           </div>
         )}
 

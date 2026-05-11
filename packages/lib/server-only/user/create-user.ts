@@ -78,7 +78,12 @@ export type OnCreateUserHookOptions = {
  * @returns User
  */
 export const onCreateUserHook = async (user: User, options: OnCreateUserHookOptions = {}) => {
-  if (!options.skipPersonalOrganisation) {
+  // Personal organisation auto-creation is disabled for LIUX. Every employee
+  // belongs to the LIUX organisation (joined via an invite) and the personal
+  // org would just be empty noise next to it. Leaving the option in place so
+  // a caller can opt back in explicitly if needed (e.g. seed scripts), but
+  // the default is now off.
+  if (options.skipPersonalOrganisation === false) {
     await createPersonalOrganisation({ userId: user.id });
   }
 
