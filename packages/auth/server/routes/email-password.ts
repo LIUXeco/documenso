@@ -17,6 +17,7 @@ import { setupTwoFactorAuthentication } from '@documenso/lib/server-only/2fa/set
 import { validateTwoFactorAuthentication } from '@documenso/lib/server-only/2fa/validate-2fa';
 import { viewBackupCodes } from '@documenso/lib/server-only/2fa/view-backup-codes';
 import { verifyCaptchaToken } from '@documenso/lib/server-only/captcha/verify-captcha';
+import { acceptOrganisationInvitation } from '@documenso/lib/server-only/organisation/accept-organisation-invitation';
 import { rateLimitResponse } from '@documenso/lib/server-only/rate-limit/rate-limit-middleware';
 import {
   forgotPasswordRateLimit,
@@ -238,6 +239,16 @@ export const emailPasswordRoute = new Hono<HonoAuthContext>()
       console.error(err);
       throw err;
     });
+
+    // If the signup came from an invite link, auto-accept the invite so the
+    // new user lands inside the organisation on first login instead of
+    // having to dismiss a 'Pending invitations' dialog. We don't fail signup
+    // if this errors — the invite can still be accepted manually later.
+    if (inviteToken) {
+      await acceptOrganisationInvitation({ token: inviteToken }).catch((err: unknown) => {
+        console.error('Failed to auto-accept organisation invitation on signup', err);
+      });
+    }
 
     await jobsClient.triggerJob({
       name: 'send.signup.confirmation.email',
