@@ -116,7 +116,11 @@ export const generateDefaultOrganisationSettings = (): Omit<
 > => {
   return {
     documentVisibility: DocumentVisibility.EVERYONE,
-    documentLanguage: 'en',
+    // Spanish is the canonical language for the LIUX deployment. Setting this
+    // on org creation means subject + preview-text strings (which use the
+    // English msgid as their source) get translated via the .po catalog,
+    // matching the body templates that are already authored in Spanish.
+    documentLanguage: 'es',
     documentTimezone: null, // Null means local timezone.
     documentDateFormat: DEFAULT_DOCUMENT_DATE_FORMAT,
     delegateDocumentOwnership: false,
