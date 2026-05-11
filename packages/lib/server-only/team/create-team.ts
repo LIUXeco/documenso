@@ -18,6 +18,7 @@ import { TEAM_INTERNAL_GROUPS } from '../../constants/teams';
 import { generateDatabaseId } from '../../universal/id';
 import { buildOrganisationWhereQuery } from '../../utils/organisations';
 import { generateDefaultTeamSettings } from '../../utils/teams';
+import { invalidateOrganisationSessionCache } from '../organisation/organisation-session-cache';
 
 export type CreateTeamOptions = {
   /**
@@ -202,4 +203,10 @@ export const createTeam = async ({
 
       throw err;
     });
+
+  // The new team appears in the creator's org tree (and in every existing
+  // org member's tree if inheritMembers was true). Bust the SSR cache for
+  // the creator so the next render reflects it. Other affected users will
+  // pick it up within the cache TTL.
+  invalidateOrganisationSessionCache(userId);
 };

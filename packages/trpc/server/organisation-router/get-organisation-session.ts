@@ -1,3 +1,7 @@
+import {
+  ORGANISATION_SESSION_CACHE_TTL_MS,
+  organisationSessionCache,
+} from '@documenso/lib/server-only/organisation/organisation-session-cache';
 import { getHighestOrganisationRoleInGroup } from '@documenso/lib/utils/organisations';
 import { extractDerivedTeamSettings, getHighestTeamRoleInGroup } from '@documenso/lib/utils/teams';
 import { prisma } from '@documenso/prisma';
@@ -15,7 +19,38 @@ export const getOrganisationSessionRoute = authenticatedProcedure
     return await getOrganisationSession({ userId: ctx.user.id });
   });
 
+// `getOrganisationSession` is the heaviest query on the SSR critical path:
+// every page render runs it from the root loader, and a Railway↔Supabase
+// round-trip costs ~1-2s. We cache the promise (so concurrent in-flight
+// renders coalesce) with a short TTL. Cache + invalidate helper live in
+// `packages/lib/.../organisation-session-cache` to avoid a lib → trpc cycle.
 export const getOrganisationSession = async ({
+  userId,
+}: {
+  userId: number;
+}): Promise<TGetOrganisationSessionResponse> => {
+  const cached = organisationSessionCache.get(userId);
+  if (cached && cached.expiresAt > Date.now()) {
+    return cached.promise;
+  }
+
+  const promise = computeOrganisationSession({ userId }).catch((err) => {
+    // Don't pin a rejected promise into the cache — let the next call retry.
+    if (organisationSessionCache.get(userId)?.promise === promise) {
+      organisationSessionCache.delete(userId);
+    }
+    throw err;
+  });
+
+  organisationSessionCache.set(userId, {
+    promise,
+    expiresAt: Date.now() + ORGANISATION_SESSION_CACHE_TTL_MS,
+  });
+
+  return promise;
+};
+
+const computeOrganisationSession = async ({
   userId,
 }: {
   userId: number;

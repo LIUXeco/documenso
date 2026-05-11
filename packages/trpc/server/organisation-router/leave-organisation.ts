@@ -1,6 +1,7 @@
 import { syncMemberCountWithStripeSeatPlan } from '@documenso/ee/server-only/stripe/update-subscription-item-quantity';
 import { AppError, AppErrorCode } from '@documenso/lib/errors/app-error';
 import { jobs } from '@documenso/lib/jobs/client';
+import { invalidateOrganisationSessionCache } from '@documenso/lib/server-only/organisation/organisation-session-cache';
 import { buildOrganisationWhereQuery } from '@documenso/lib/utils/organisations';
 import { prisma } from '@documenso/prisma';
 import { OrganisationMemberInviteStatus } from '@documenso/prisma/client';
@@ -99,6 +100,10 @@ export const leaveOrganisationRoute = authenticatedProcedure
         },
       });
     });
+
+    // The user is no longer in this org; flush the SSR cache so the next
+    // render hides it immediately.
+    invalidateOrganisationSessionCache(userId);
 
     await jobs.triggerJob({
       name: 'send.organisation-member-left.email',

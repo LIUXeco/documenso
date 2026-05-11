@@ -14,6 +14,7 @@ import { INTERNAL_CLAIM_ID, internalClaims } from '../../types/subscription';
 import { generateDatabaseId, prefixedId } from '../../universal/id';
 import { generateDefaultOrganisationSettings } from '../../utils/organisations';
 import { createTeam } from '../team/create-team';
+import { invalidateOrganisationSessionCache } from './organisation-session-cache';
 
 type CreateOrganisationOptions = {
   userId: number;
@@ -144,6 +145,10 @@ export const createOrganisation = async ({
         },
       },
     });
+
+    // New org joined the user's tree; bust the SSR cache so the next render
+    // shows it immediately (post-redirect after creation, dashboard nav, etc).
+    invalidateOrganisationSessionCache(userId);
 
     return organisation;
   });

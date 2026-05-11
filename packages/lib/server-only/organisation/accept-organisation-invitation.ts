@@ -10,6 +10,7 @@ import { prisma } from '@documenso/prisma';
 import { AppError, AppErrorCode } from '../../errors/app-error';
 import { jobs } from '../../jobs/client';
 import { generateDatabaseId } from '../../universal/id';
+import { invalidateOrganisationSessionCache } from './organisation-session-cache';
 
 export type AcceptOrganisationInvitationOptions = {
   token: string;
@@ -131,6 +132,11 @@ export const acceptOrganisationInvitation = async ({
       status: OrganisationMemberInviteStatus.ACCEPTED,
     },
   });
+
+  // The user's org/team tree just changed; flush the SSR cache so the next
+  // render (e.g. the redirect that lands them on /inbox) sees the new
+  // membership instead of an empty / stale snapshot.
+  invalidateOrganisationSessionCache(user.id);
 };
 
 export const addUserToOrganisation = async ({
