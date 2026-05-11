@@ -37,7 +37,14 @@ import { useOptionalCurrentTeam } from '~/providers/team';
 export const OrgMenuSwitcher = () => {
   const { _ } = useLingui();
 
-  const { user, organisations } = useSession();
+  const { user, organisations: allOrganisations } = useSession();
+
+  // Hide the auto-created PERSONAL organisation from the switcher. It's not
+  // a real workplace for LIUX users — every account gets one automatically,
+  // but for invited employees it's just noise next to the real organisation.
+  // The org still exists in the DB (and direct /o/<personal-url> links still
+  // work), it just doesn't clutter the dropdown.
+  const organisations = allOrganisations.filter((org) => org.type !== 'PERSONAL');
 
   const { pathname } = useLocation();
 
