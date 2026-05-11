@@ -15,10 +15,8 @@ export const findInboxRoute = authenticatedProcedure
   .query(async ({ input, ctx }) => {
     const { page, perPage } = input;
 
-    const userId = ctx.user.id;
-
     const envelopes = await findInbox({
-      userId,
+      user: { id: ctx.user.id, email: ctx.user.email },
       page,
       perPage,
     });
@@ -30,7 +28,10 @@ export const findInboxRoute = authenticatedProcedure
   });
 
 export type FindInboxOptions = {
-  userId: number;
+  // Caller already has the user from the auth context; passing it in avoids
+  // a wasted serial DB round-trip per inbox request (the prior implementation
+  // re-fetched id/email by primary key before the count+find could start).
+  user: { id: number; email: string };
   page?: number;
   perPage?: number;
   orderBy?: {
@@ -39,17 +40,7 @@ export type FindInboxOptions = {
   };
 };
 
-export const findInbox = async ({ userId, page = 1, perPage = 10, orderBy }: FindInboxOptions) => {
-  const user = await prisma.user.findFirstOrThrow({
-    where: {
-      id: userId,
-    },
-    select: {
-      id: true,
-      email: true,
-    },
-  });
-
+export const findInbox = async ({ user, page = 1, perPage = 10, orderBy }: FindInboxOptions) => {
   const orderByColumn = orderBy?.column ?? 'createdAt';
   const orderByDirection = orderBy?.direction ?? 'desc';
 

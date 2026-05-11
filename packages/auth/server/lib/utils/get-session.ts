@@ -23,9 +23,16 @@ export const getSession = async (c: Context | Request) => {
   throw new AppError(AuthenticationErrorCode.Unauthorized);
 };
 
-export const getOptionalSession = async (
-  c: Context | Request,
-): Promise<SessionValidationResult> => {
+// Per-request cache for session validation. Multiple RR7 loaders (root +
+// nested _authenticated layouts) independently call getOptionalSession on
+// every page render — without dedup that's a wasted DB round-trip per loader.
+// React Router 7 forwards the same Request instance to every loader in a
+// render, so a WeakMap keyed by Request is exactly the right granularity:
+// concurrent calls share the in-flight promise, and entries are GC'd once
+// the response finishes.
+const sessionCache = new WeakMap<Request, Promise<SessionValidationResult>>();
+
+const validateRequestSession = async (c: Context | Request): Promise<SessionValidationResult> => {
   const sessionId = await getSessionCookie(mapRequestToContextForCookie(c));
 
   if (!sessionId) {
@@ -37,6 +44,23 @@ export const getOptionalSession = async (
   }
 
   return await validateSessionToken(sessionId);
+};
+
+export const getOptionalSession = async (
+  c: Context | Request,
+): Promise<SessionValidationResult> => {
+  if (c instanceof Request) {
+    const cached = sessionCache.get(c);
+    if (cached) {
+      return cached;
+    }
+
+    const promise = validateRequestSession(c);
+    sessionCache.set(c, promise);
+    return promise;
+  }
+
+  return validateRequestSession(c);
 };
 
 export type ActiveSession = Omit<Session, 'sessionToken'>;
