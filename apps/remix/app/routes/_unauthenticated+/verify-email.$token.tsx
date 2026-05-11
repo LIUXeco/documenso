@@ -146,8 +146,8 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
 
             <p className="mt-4 text-muted-foreground">
               <Trans>
-                Your email has been successfully confirmed! You can now use all features of
-                Documenso.
+                Your email has been successfully confirmed! You can now use all features of LIUX
+                Sign.
               </Trans>
             </p>
 
@@ -174,7 +174,7 @@ export default function VerifyEmailPage({ loaderData }: Route.ComponentProps) {
 
             <p className="mt-4 text-muted-foreground">
               <Trans>
-                Your email has already been confirmed. You can now use all features of Documenso.
+                Your email has already been confirmed. You can now use all features of LIUX Sign.
               </Trans>
             </p>
 
