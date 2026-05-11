@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 import React from 'react';
 
 import type { Session } from '@prisma/client';
@@ -56,8 +56,21 @@ export const useOptionalSession = () => {
   return context;
 };
 
+// Minimum interval between automatic background session refreshes (on
+// navigation or window focus). The SSR loader already produced fresh session
+// + organisation data on first mount, and the legacy behaviour of refreshing
+// on *every* route change was costing 5+ seconds per navigation (session-json
+// ~1.3s + getOrganisationSession ~4s). Explicit `refreshSession()` calls
+// after mutations bypass this throttle.
+const SESSION_AUTO_REFRESH_INTERVAL_MS = 60_000;
+
 export const SessionProvider = ({ children, initialSession }: SessionProviderProps) => {
   const [session, setSession] = useState<AppSession | null>(initialSession);
+
+  // Initialise to "now" so the first navigation effect doesn't trigger a
+  // redundant refetch — the initialSession we received from the loader was
+  // freshly produced on the server.
+  const lastRefreshedAtRef = useRef(Date.now());
 
   const location = useLocation();
 
@@ -93,6 +106,8 @@ export const SessionProvider = ({ children, initialSession }: SessionProviderPro
       return;
     }
 
+    lastRefreshedAtRef.current = Date.now();
+
     setSession({
       session: newSession.session,
       user: newSession.user,
@@ -100,9 +115,17 @@ export const SessionProvider = ({ children, initialSession }: SessionProviderPro
     });
   }, []);
 
+  const maybeRefreshSession = useCallback(async () => {
+    if (Date.now() - lastRefreshedAtRef.current < SESSION_AUTO_REFRESH_INTERVAL_MS) {
+      return;
+    }
+
+    await refreshSession();
+  }, [refreshSession]);
+
   useEffect(() => {
     const onFocus = () => {
-      void refreshSession();
+      void maybeRefreshSession();
     };
 
     window.addEventListener('focus', onFocus);
@@ -110,14 +133,14 @@ export const SessionProvider = ({ children, initialSession }: SessionProviderPro
     return () => {
       window.removeEventListener('focus', onFocus);
     };
-  }, [refreshSession]);
+  }, [maybeRefreshSession]);
 
   /**
-   * Refresh session in background on navigation.
+   * Refresh session in background on navigation (throttled).
    */
   useEffect(() => {
-    void refreshSession();
-  }, [location.pathname]);
+    void maybeRefreshSession();
+  }, [location.pathname, maybeRefreshSession]);
 
   return (
     <SessionContext.Provider
