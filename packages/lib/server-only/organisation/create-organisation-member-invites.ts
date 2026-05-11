@@ -87,16 +87,19 @@ export const createOrganisationMemberInvites = async ({
   });
 
   const organisationMemberEmails = organisation.members.map((member) => member.user.email);
-  const organisationMemberInviteEmails = organisation.invites.map((invite) => invite.email);
+  // Index existing invites by email so we can spot resends quickly. If the
+  // admin invites the same email twice (because the first attempt landed in
+  // spam, was missed, etc.) we want to re-issue the email instead of silently
+  // dropping it.
+  const existingInvitesByEmail = new Map(
+    organisation.invites.map((invite) => [invite.email, invite]),
+  );
 
   const usersToInvite = invitations.filter((invitation) => {
-    // Filter out users that are already members of the organisation.
+    // Filter out users that are already members of the organisation. Re-inviting
+    // an existing member doesn't make sense; their account is set up and they
+    // can sign in directly.
     if (organisationMemberEmails.includes(invitation.email)) {
-      return false;
-    }
-
-    // Filter out users that have already been invited to the organisation.
-    if (organisationMemberInviteEmails.includes(invitation.email)) {
       return false;
     }
 
@@ -114,8 +117,13 @@ export const createOrganisationMemberInvites = async ({
     });
   }
 
+  // Split invites into brand new ones and resends so we don't double-count
+  // them against the seat cap.
+  const newInvitations = usersToInvite.filter(({ email }) => !existingInvitesByEmail.has(email));
+  const resendInvitations = usersToInvite.filter(({ email }) => existingInvitesByEmail.has(email));
+
   const organisationMemberInvites: Prisma.OrganisationMemberInviteCreateManyInput[] =
-    usersToInvite.map(({ email, organisationRole }) => ({
+    newInvitations.map(({ email, organisationRole }) => ({
       id: generateDatabaseId('member_invite'),
       email,
       organisationId,
@@ -145,8 +153,22 @@ export const createOrganisationMemberInvites = async ({
     data: organisationMemberInvites,
   });
 
+  // For resends we keep the existing row (token stays valid so any old email
+  // the user might still have works too) and just re-trigger the send.
+  const resendEmailJobs = resendInvitations.map(({ email }) => {
+    const existing = existingInvitesByEmail.get(email);
+    // Guarded by the filter above, but keep TS happy.
+    if (!existing) {
+      return null;
+    }
+    return { email, token: existing.token };
+  });
+
   const sendEmailResult = await Promise.allSettled(
-    organisationMemberInvites.map(async ({ email, token }) =>
+    [
+      ...organisationMemberInvites.map(({ email, token }) => ({ email, token })),
+      ...resendEmailJobs.filter((job): job is { email: string; token: string } => job !== null),
+    ].map(async ({ email, token }) =>
       sendOrganisationMemberInviteEmail({
         email,
         token,
@@ -160,12 +182,14 @@ export const createOrganisationMemberInvites = async ({
     (result): result is PromiseRejectedResult => result.status === 'rejected',
   );
 
+  const totalEmailsSent = organisationMemberInvites.length + resendEmailJobs.length;
+
   if (sendEmailResultErrorList.length > 0) {
     console.error(JSON.stringify(sendEmailResultErrorList));
 
     throw new AppError('EmailDeliveryFailed', {
       message: 'Failed to send invite emails to one or more users.',
-      userMessage: `Failed to send invites to ${sendEmailResultErrorList.length}/${organisationMemberInvites.length} users.`,
+      userMessage: `Failed to send invites to ${sendEmailResultErrorList.length}/${totalEmailsSent} users.`,
     });
   }
 };
