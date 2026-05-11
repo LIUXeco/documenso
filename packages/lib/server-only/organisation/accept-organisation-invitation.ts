@@ -1,5 +1,9 @@
 import type { OrganisationGroup, OrganisationMemberRole } from '@prisma/client';
-import { OrganisationGroupType, OrganisationMemberInviteStatus } from '@prisma/client';
+import {
+  OrganisationGroupType,
+  OrganisationMemberInviteStatus,
+  TeamMemberRole,
+} from '@prisma/client';
 
 import { prisma } from '@documenso/prisma';
 
@@ -25,6 +29,20 @@ export const acceptOrganisationInvitation = async ({
       organisation: {
         include: {
           groups: true,
+        },
+      },
+      // Team-scoped invites carry an optional team. We fetch its INTERNAL_TEAM
+      // groups eagerly so we can add the user directly to the right team group
+      // without an extra round-trip.
+      team: {
+        include: {
+          teamGroups: {
+            where: {
+              organisationGroup: {
+                type: OrganisationGroupType.INTERNAL_TEAM,
+              },
+            },
+          },
         },
       },
     },
@@ -75,6 +93,35 @@ export const acceptOrganisationInvitation = async ({
     organisationGroups: organisation.groups,
     organisationMemberRole: organisationMemberInvite.organisationRole,
   });
+
+  // If the invite was team-scoped, add the user to that specific team. We do
+  // this after addUserToOrganisation so the organisationMember row exists.
+  const { team } = organisationMemberInvite;
+  if (team) {
+    const teamRole = organisationMemberInvite.teamRole ?? TeamMemberRole.MEMBER;
+
+    const teamGroup = team.teamGroups.find((group) => group.teamRole === teamRole);
+
+    if (teamGroup) {
+      const newMember = await prisma.organisationMember.findFirst({
+        where: {
+          userId: user.id,
+          organisationId: organisation.id,
+        },
+        select: { id: true },
+      });
+
+      if (newMember) {
+        await prisma.organisationGroupMember.create({
+          data: {
+            id: generateDatabaseId('group_member'),
+            organisationMemberId: newMember.id,
+            groupId: teamGroup.organisationGroupId,
+          },
+        });
+      }
+    }
+  }
 
   await prisma.organisationMemberInvite.update({
     where: {

@@ -758,6 +758,14 @@ model OrganisationMemberInvite {
   organisationId   String
   organisation     Organisation           @relation(fields: [organisationId], references: [id], onDelete: Cascade)
   organisationRole OrganisationMemberRole
+
+  // Optional team scope. When set, accepting this invite ALSO adds the user
+  // to the referenced team with `teamRole`. Used to express "invite Bob to
+  // the People team" without forcing the team to inherit every org member.
+  // Null = pure org-level invite (legacy behaviour).
+  teamId   Int?
+  team     Team?           @relation(fields: [teamId], references: [id], onDelete: SetNull)
+  teamRole TeamMemberRole?
 }
 
 model OrganisationGroup {
@@ -930,6 +938,9 @@ model Team {
   apiTokens  ApiToken[]
   webhooks   Webhook[]
   teamGroups TeamGroup[]
+
+  // Pending invites scoped to this team (see OrganisationMemberInvite.teamId)
+  pendingInvites OrganisationMemberInvite[]
 
   organisationId String
   organisation   Organisation @relation(fields: [organisationId], references: [id], onDelete: Cascade)

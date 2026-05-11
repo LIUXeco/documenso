@@ -2,7 +2,7 @@ import { createElement } from 'react';
 
 import { msg } from '@lingui/core/macro';
 import type { Organisation, Prisma } from '@prisma/client';
-import { OrganisationMemberInviteStatus } from '@prisma/client';
+import { OrganisationMemberInviteStatus, TeamMemberRole } from '@prisma/client';
 import { nanoid } from 'nanoid';
 
 import {
@@ -117,17 +117,41 @@ export const createOrganisationMemberInvites = async ({
     });
   }
 
+  // Validate any team-scoped invites: the team must belong to this org so an
+  // admin can't smuggle a user into a team in a different organisation by
+  // crafting the request manually.
+  const invitedTeamIds = Array.from(
+    new Set(usersToInvite.map((i) => i.teamId).filter((id): id is number => id !== undefined)),
+  );
+
+  if (invitedTeamIds.length > 0) {
+    const validTeams = await prisma.team.findMany({
+      where: { id: { in: invitedTeamIds }, organisationId },
+      select: { id: true },
+    });
+    const validTeamIds = new Set(validTeams.map((t) => t.id));
+    const hasInvalidTeam = invitedTeamIds.some((id) => !validTeamIds.has(id));
+
+    if (hasInvalidTeam) {
+      throw new AppError(AppErrorCode.INVALID_REQUEST, {
+        message: 'One or more invitations reference a team that is not in this organisation.',
+      });
+    }
+  }
+
   // Split invites into brand new ones and resends so we don't double-count
   // them against the seat cap.
   const newInvitations = usersToInvite.filter(({ email }) => !existingInvitesByEmail.has(email));
   const resendInvitations = usersToInvite.filter(({ email }) => existingInvitesByEmail.has(email));
 
   const organisationMemberInvites: Prisma.OrganisationMemberInviteCreateManyInput[] =
-    newInvitations.map(({ email, organisationRole }) => ({
+    newInvitations.map(({ email, organisationRole, teamId, teamRole }) => ({
       id: generateDatabaseId('member_invite'),
       email,
       organisationId,
       organisationRole,
+      teamId: teamId ?? null,
+      teamRole: teamRole ?? (teamId ? TeamMemberRole.MEMBER : null),
       token: nanoid(32),
     }));
 

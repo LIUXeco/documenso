@@ -286,6 +286,7 @@ export const TeamMemberCreateDialog = ({ trigger, ...props }: TeamMemberCreateDi
                                 <OrganisationMemberInviteDialog
                                   open={inviteDialogOpen}
                                   onOpenChange={setInviteDialogOpen}
+                                  teamScope={{ teamId: team.id, teamName: team.name }}
                                   trigger={
                                     <Button type="button" variant="default">
                                       <UserPlusIcon className="mr-2 h-4 w-4" />
@@ -342,6 +343,7 @@ export const TeamMemberCreateDialog = ({ trigger, ...props }: TeamMemberCreateDi
                                   <OrganisationMemberInviteDialog
                                     open={inviteDialogOpen}
                                     onOpenChange={setInviteDialogOpen}
+                                    teamScope={{ teamId: team.id, teamName: team.name }}
                                     trigger={
                                       <Button
                                         type="button"

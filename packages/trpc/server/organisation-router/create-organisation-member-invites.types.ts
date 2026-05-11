@@ -1,4 +1,4 @@
-import { OrganisationMemberRole } from '@prisma/client';
+import { OrganisationMemberRole, TeamMemberRole } from '@prisma/client';
 import { z } from 'zod';
 
 import { zEmail } from '@documenso/lib/utils/zod';
@@ -20,6 +20,11 @@ export const ZCreateOrganisationMemberInvitesRequestSchema = z.object({
       z.object({
         email: zEmail().trim().toLowerCase(),
         organisationRole: z.nativeEnum(OrganisationMemberRole),
+        // Optional team scope: when set, accepting the invite also adds the
+        // user to this team with `teamRole`. The team must belong to the
+        // organisation the invite is being created in (validated server-side).
+        teamId: z.number().int().optional(),
+        teamRole: z.nativeEnum(TeamMemberRole).optional(),
       }),
     )
     .min(1)

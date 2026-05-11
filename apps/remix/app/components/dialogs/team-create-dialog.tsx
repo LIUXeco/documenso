@@ -79,7 +79,9 @@ export const TeamCreateDialog = ({ trigger, onCreated, ...props }: TeamCreateDia
     defaultValues: {
       teamName: '',
       teamUrl: '',
-      inheritMembers: true,
+      // Default to false so newly created teams are isolated. Admin can flip
+      // the toggle in the dialog to grant all org members access.
+      inheritMembers: false,
     },
   });
 

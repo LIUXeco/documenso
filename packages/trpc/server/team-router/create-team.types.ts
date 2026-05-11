@@ -19,8 +19,9 @@ export const ZCreateTeamRequestSchema = z.object({
   teamUrl: ZTeamUrlSchema,
   inheritMembers: z
     .boolean()
+    .default(false)
     .describe(
-      'Whether to automatically assign all current and future organisation members to the new team. Defaults to true.',
+      'Whether to automatically assign all current and future organisation members to the new team. Defaults to false so new teams are isolated by default and the admin must add members explicitly.',
     ),
 });
 

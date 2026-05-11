@@ -4,7 +4,7 @@ import { zodResolver } from '@hookform/resolvers/zod';
 import { msg } from '@lingui/core/macro';
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
-import { OrganisationMemberRole } from '@prisma/client';
+import { OrganisationMemberRole, TeamMemberRole } from '@prisma/client';
 import type * as DialogPrimitive from '@radix-ui/react-dialog';
 import { Download, Mail, MailIcon, PlusCircle, Trash, Upload, UsersIcon } from 'lucide-react';
 import Papa, { type ParseResult } from 'papaparse';
@@ -55,6 +55,14 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 
 export type OrganisationMemberInviteDialogProps = {
   trigger?: React.ReactNode;
+  // When set, every invitation created from this dialog is scoped to a team.
+  // On invite acceptance the user is added to the organisation *and* directly
+  // to this team, instead of relying on the team's inheritMembers flag.
+  teamScope?: {
+    teamId: number;
+    teamName?: string;
+    teamRole?: TeamMemberRole;
+  };
 } & Omit<DialogPrimitive.DialogProps, 'children'>;
 
 const ZInviteOrganisationMembersFormSchema = z
@@ -102,6 +110,7 @@ const ZImportOrganisationMemberSchema = z.array(
 
 export const OrganisationMemberInviteDialog = ({
   trigger,
+  teamScope,
   ...props
 }: OrganisationMemberInviteDialogProps) => {
   const [open, setOpen] = useState(false);
@@ -150,9 +159,17 @@ export const OrganisationMemberInviteDialog = ({
 
   const onFormSubmit = async ({ invitations }: TInviteOrganisationMembersFormSchema) => {
     try {
+      const scopedInvitations = teamScope
+        ? invitations.map((invitation) => ({
+            ...invitation,
+            teamId: teamScope.teamId,
+            teamRole: teamScope.teamRole ?? TeamMemberRole.MEMBER,
+          }))
+        : invitations;
+
       await createOrganisationMemberInvites({
         organisationId: organisation.id,
-        invitations,
+        invitations: scopedInvitations,
       });
 
       toast({
@@ -293,7 +310,15 @@ export const OrganisationMemberInviteDialog = ({
           </DialogTitle>
 
           <DialogDescription className="mt-4">
-            <Trans>An email containing an invitation will be sent to each member.</Trans>
+            {teamScope ? (
+              <Trans>
+                An email invitation will be sent to each person. When they accept, they will be
+                added to the organisation and directly to the{' '}
+                <strong>{teamScope.teamName ?? 'selected'}</strong> team.
+              </Trans>
+            ) : (
+              <Trans>An email containing an invitation will be sent to each member.</Trans>
+            )}
           </DialogDescription>
         </DialogHeader>
 
