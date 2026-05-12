@@ -92,34 +92,66 @@ export const SessionProvider = ({
 
   const location = useLocation();
 
+  // On the very first mount in Phase B (orgs not hydrated), we already have
+  // a fresh `initialSession` from the SSR loader — there's no point re-asking
+  // /session-json. Fetching just the organisations cuts one round trip off the
+  // cold-load critical path (~500ms-1s on Railway↔Supabase).
+  const isPhaseBFirstFetchRef = useRef(Boolean(initialSession && !organisationsHydrated));
+
+  const fetchOrganisations = useCallback(async () => {
+    return await trpc.organisation.internal.getOrganisationSession
+      .query(undefined, SKIP_QUERY_BATCH_META.trpc)
+      .catch((e) => {
+        const errorMessage = typeof e.message === 'string' ? e.message.toLowerCase() : '';
+
+        const isNetworkError =
+          errorMessage.includes('networkerror') || errorMessage.includes('failed to fetch');
+
+        // If the error is a transient network/abort error (e.g. page refresh while
+        // fetch was in-flight), return null to signal we should skip the state update.
+        if (isNetworkError) {
+          return null;
+        }
+
+        // Todo: (RR7) Log
+        return [];
+      });
+  }, []);
+
+  const refreshOrganisationsOnly = useCallback(async () => {
+    setIsLoadingOrganisations(true);
+
+    try {
+      const organisations = await fetchOrganisations();
+
+      if (organisations === null) {
+        return;
+      }
+
+      lastRefreshedAtRef.current = Date.now();
+
+      setSession((prev) => (prev ? { ...prev, organisations } : prev));
+    } finally {
+      setIsLoadingOrganisations(false);
+    }
+  }, [fetchOrganisations]);
+
   const refreshSession = useCallback(async () => {
     setIsLoadingOrganisations(true);
 
     try {
-      const newSession = await authClient.getSession();
+      // Run /session-json and getOrganisationSession in parallel — they're
+      // independent on the wire and previously cost us a sequential ~2-3s
+      // every time the throttled background refresh fired.
+      const [newSession, organisations] = await Promise.all([
+        authClient.getSession(),
+        fetchOrganisations(),
+      ]);
 
       if (!newSession.isAuthenticated) {
         setSession(null);
         return;
       }
-
-      const organisations = await trpc.organisation.internal.getOrganisationSession
-        .query(undefined, SKIP_QUERY_BATCH_META.trpc)
-        .catch((e) => {
-          const errorMessage = typeof e.message === 'string' ? e.message.toLowerCase() : '';
-
-          const isNetworkError =
-            errorMessage.includes('networkerror') || errorMessage.includes('failed to fetch');
-
-          // If the error is a transient network/abort error (e.g. page refresh while
-          // fetch was in-flight), return null to signal we should skip the state update.
-          if (isNetworkError) {
-            return null;
-          }
-
-          // Todo: (RR7) Log
-          return [];
-        });
 
       // Skip session update if the organisation fetch was aborted due to a transient
       // network error (e.g. page refresh while fetch was in-flight).
@@ -137,7 +169,7 @@ export const SessionProvider = ({
     } finally {
       setIsLoadingOrganisations(false);
     }
-  }, []);
+  }, [fetchOrganisations]);
 
   const maybeRefreshSession = useCallback(async () => {
     if (Date.now() - lastRefreshedAtRef.current < SESSION_AUTO_REFRESH_INTERVAL_MS) {
@@ -163,8 +195,14 @@ export const SessionProvider = ({
    * Refresh session in background on navigation (throttled).
    */
   useEffect(() => {
+    if (isPhaseBFirstFetchRef.current) {
+      isPhaseBFirstFetchRef.current = false;
+      void refreshOrganisationsOnly();
+      return;
+    }
+
     void maybeRefreshSession();
-  }, [location.pathname, maybeRefreshSession]);
+  }, [location.pathname, maybeRefreshSession, refreshOrganisationsOnly]);
 
   return (
     <SessionContext.Provider

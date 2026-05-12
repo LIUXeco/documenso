@@ -7,6 +7,7 @@ import { OrganisationProvider } from '@documenso/lib/client-only/providers/organ
 import { useSession } from '@documenso/lib/client-only/providers/session';
 import { getSiteSettings } from '@documenso/lib/server-only/site-settings/get-site-settings';
 import { SITE_SETTINGS_BANNER_ID } from '@documenso/lib/server-only/site-settings/schemas/banner';
+import { getOrganisationSession } from '@documenso/trpc/server/organisation-router/get-organisation-session';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
 import { SpinnerBox } from '@documenso/ui/primitives/spinner';
@@ -38,6 +39,17 @@ export async function loader({ request }: Route.LoaderArgs) {
   if (!session.isAuthenticated) {
     throw redirect('/signin');
   }
+
+  // Fire-and-forget warmup for the per-user org/team tree. The client-side
+  // SessionProvider asks for it via tRPC ~1-2s later (after JS download +
+  // hydrate); by then the in-process organisationSessionCache holds the
+  // resolved (or in-flight) promise, so the round trip to Supabase happens
+  // during SSR idle time instead of blocking the spinner phase. TTFB is
+  // unaffected because we don't await this here.
+  void getOrganisationSession({ userId: session.user.id }).catch(() => {
+    // Swallow: if this prefetch fails, the tRPC call will retry on the client
+    // and surface the real error there.
+  });
 
   return {
     banner,
