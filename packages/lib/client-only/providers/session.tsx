@@ -20,10 +20,16 @@ export type AppSession = {
 interface SessionProviderProps {
   children: React.ReactNode;
   initialSession: AppSession | null;
+  // When false, the SSR loader did NOT eagerly fetch the user's organisation
+  // tree (Phase B defer). The provider triggers an immediate background
+  // refresh on mount instead, so the page can paint sooner and the
+  // org-dependent UI fills in once the data arrives.
+  organisationsHydrated?: boolean;
 }
 
 interface SessionContextValue {
   sessionData: AppSession | null;
+  isLoadingOrganisations: boolean;
   refreshSession: () => Promise<void>;
 }
 
@@ -42,6 +48,7 @@ export const useSession = () => {
 
   return {
     ...context.sessionData,
+    isLoadingOrganisations: context.isLoadingOrganisations,
     refreshSession: context.refreshSession,
   };
 };
@@ -64,55 +71,72 @@ export const useOptionalSession = () => {
 // after mutations bypass this throttle.
 const SESSION_AUTO_REFRESH_INTERVAL_MS = 60_000;
 
-export const SessionProvider = ({ children, initialSession }: SessionProviderProps) => {
+export const SessionProvider = ({
+  children,
+  initialSession,
+  organisationsHydrated = true,
+}: SessionProviderProps) => {
   const [session, setSession] = useState<AppSession | null>(initialSession);
 
-  // Initialise to "now" so the first navigation effect doesn't trigger a
-  // redundant refetch — the initialSession we received from the loader was
-  // freshly produced on the server.
-  const lastRefreshedAtRef = useRef(Date.now());
+  // If the loader didn't hydrate organisations (defer mode), surface a
+  // loading flag so org-dependent UI can render a skeleton instead of
+  // flashing a "team/org not found" 404 while the client fetches.
+  const [isLoadingOrganisations, setIsLoadingOrganisations] = useState(
+    Boolean(initialSession && !organisationsHydrated),
+  );
+
+  // When orgs are hydrated, treat the loader-provided data as fresh and skip
+  // the mount-fire of the navigation effect. When NOT hydrated, set the
+  // ref to 0 so the same effect immediately triggers a real fetch.
+  const lastRefreshedAtRef = useRef(organisationsHydrated ? Date.now() : 0);
 
   const location = useLocation();
 
   const refreshSession = useCallback(async () => {
-    const newSession = await authClient.getSession();
+    setIsLoadingOrganisations(true);
 
-    if (!newSession.isAuthenticated) {
-      setSession(null);
-      return;
-    }
+    try {
+      const newSession = await authClient.getSession();
 
-    const organisations = await trpc.organisation.internal.getOrganisationSession
-      .query(undefined, SKIP_QUERY_BATCH_META.trpc)
-      .catch((e) => {
-        const errorMessage = typeof e.message === 'string' ? e.message.toLowerCase() : '';
+      if (!newSession.isAuthenticated) {
+        setSession(null);
+        return;
+      }
 
-        const isNetworkError =
-          errorMessage.includes('networkerror') || errorMessage.includes('failed to fetch');
+      const organisations = await trpc.organisation.internal.getOrganisationSession
+        .query(undefined, SKIP_QUERY_BATCH_META.trpc)
+        .catch((e) => {
+          const errorMessage = typeof e.message === 'string' ? e.message.toLowerCase() : '';
 
-        // If the error is a transient network/abort error (e.g. page refresh while
-        // fetch was in-flight), return null to signal we should skip the state update.
-        if (isNetworkError) {
-          return null;
-        }
+          const isNetworkError =
+            errorMessage.includes('networkerror') || errorMessage.includes('failed to fetch');
 
-        // Todo: (RR7) Log
-        return [];
+          // If the error is a transient network/abort error (e.g. page refresh while
+          // fetch was in-flight), return null to signal we should skip the state update.
+          if (isNetworkError) {
+            return null;
+          }
+
+          // Todo: (RR7) Log
+          return [];
+        });
+
+      // Skip session update if the organisation fetch was aborted due to a transient
+      // network error (e.g. page refresh while fetch was in-flight).
+      if (organisations === null) {
+        return;
+      }
+
+      lastRefreshedAtRef.current = Date.now();
+
+      setSession({
+        session: newSession.session,
+        user: newSession.user,
+        organisations,
       });
-
-    // Skip session update if the organisation fetch was aborted due to a transient
-    // network error (e.g. page refresh while fetch was in-flight).
-    if (organisations === null) {
-      return;
+    } finally {
+      setIsLoadingOrganisations(false);
     }
-
-    lastRefreshedAtRef.current = Date.now();
-
-    setSession({
-      session: newSession.session,
-      user: newSession.user,
-      organisations,
-    });
   }, []);
 
   const maybeRefreshSession = useCallback(async () => {
@@ -146,6 +170,7 @@ export const SessionProvider = ({ children, initialSession }: SessionProviderPro
     <SessionContext.Provider
       value={{
         sessionData: session,
+        isLoadingOrganisations,
         refreshSession,
       }}
     >

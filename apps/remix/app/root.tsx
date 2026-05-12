@@ -17,7 +17,6 @@ import { APP_I18N_OPTIONS, type SupportedLanguageCodes } from '@documenso/lib/co
 import { createPublicEnv } from '@documenso/lib/utils/env';
 import { extractLocaleData } from '@documenso/lib/utils/i18n';
 import { TrpcProvider } from '@documenso/trpc/react';
-import { getOrganisationSession } from '@documenso/trpc/server/organisation-router/get-organisation-session';
 import { Toaster } from '@documenso/ui/primitives/toaster';
 import { TooltipProvider } from '@documenso/ui/primitives/tooltip';
 
@@ -57,12 +56,11 @@ export async function loader({ context, request }: Route.LoaderArgs) {
 
   const disableAnimations = cookieHeader.includes('__disable_animations=true');
 
-  let organisations = null;
-
-  if (session.isAuthenticated) {
-    organisations = await getOrganisationSession({ userId: session.user.id });
-  }
-
+  // Phase B (defer): we intentionally do NOT call getOrganisationSession on
+  // the SSR critical path. That query is the biggest single source of TTFB
+  // on every hard navigation (~1.7s warm, ~4s cold on Railway↔Supabase). The
+  // client-side SessionProvider fetches it via tRPC immediately after mount
+  // and renders a skeleton in org-dependent UI until the data arrives.
   return data(
     {
       lang,
@@ -76,9 +74,12 @@ export async function loader({ context, request }: Route.LoaderArgs) {
         ? {
             user: session.user,
             session: session.session,
-            organisations: organisations || [],
+            organisations: [],
           }
         : null,
+      // Tells the client SessionProvider that organisations are NOT in the
+      // initial state and need to be fetched on mount.
+      organisationsHydrated: false,
       publicEnv: createPublicEnv(),
     },
     {
@@ -103,6 +104,7 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
   const {
     publicEnv,
     session,
+    organisationsHydrated,
     lang,
     disableAnimations,
     nonce: cspNonce,
@@ -151,7 +153,10 @@ export function LayoutContent({ children }: { children: React.ReactNode }) {
         )} */}
 
         <NuqsAdapter>
-          <SessionProvider initialSession={session}>
+          <SessionProvider
+            initialSession={session}
+            organisationsHydrated={organisationsHydrated ?? true}
+          >
             <TooltipProvider>
               <TrpcProvider>
                 {children}

@@ -33,7 +33,7 @@ export function meta() {
 export default function DashboardPage() {
   const { t } = useLingui();
 
-  const { user, organisations } = useSession();
+  const { user, organisations, isLoadingOrganisations } = useSession();
 
   // Todo: Sort by recent access (TBD by cookies)
   // Teams, flattened with the organisation data still attached.
@@ -63,7 +63,10 @@ export default function DashboardPage() {
           <OrganisationInvitations className="mt-4" />
         </div>
 
-        {organisations.length === 0 && (
+        {/* Suppress the "no orgs" empty-state while the client is still
+            fetching the org tree (Phase B defer), so the user doesn't
+            see a flash of the wrong empty state on first render. */}
+        {organisations.length === 0 && !isLoadingOrganisations && (
           <div className="mb-12 mt-6 flex flex-col items-center justify-center rounded-lg border py-32">
             <Building2Icon className="h-10 w-10" />
 

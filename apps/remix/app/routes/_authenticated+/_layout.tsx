@@ -9,6 +9,7 @@ import { getSiteSettings } from '@documenso/lib/server-only/site-settings/get-si
 import { SITE_SETTINGS_BANNER_ID } from '@documenso/lib/server-only/site-settings/schemas/banner';
 import { cn } from '@documenso/ui/lib/utils';
 import { Button } from '@documenso/ui/primitives/button';
+import { SpinnerBox } from '@documenso/ui/primitives/spinner';
 
 import { AppBanner } from '~/components/general/app-banner';
 import { Header } from '~/components/general/app-header';
@@ -46,7 +47,7 @@ export async function loader({ request }: Route.LoaderArgs) {
 export default function Layout({ loaderData, params, matches }: Route.ComponentProps) {
   const { banner } = loaderData;
 
-  const { user, organisations } = useSession();
+  const { user, organisations, isLoadingOrganisations } = useSession();
 
   const teamUrl = params.teamUrl;
   const orgUrl = params.orgUrl;
@@ -78,6 +79,14 @@ export default function Layout({ loaderData, params, matches }: Route.ComponentP
       match?.id === 'routes/_authenticated+/t.$teamUrl+/documents.$id.edit' ||
       match?.id === 'routes/_authenticated+/t.$teamUrl+/templates.$id.edit',
   );
+
+  // Phase B (defer): organisations are fetched client-side after hydration,
+  // so on the very first render of a team/org-scoped route they are still
+  // loading. Don't flash a 404 in that window — show a spinner until the
+  // client confirms the route really is invalid.
+  if ((orgNotFound || teamNotFound) && isLoadingOrganisations) {
+    return <SpinnerBox className="py-32" />;
+  }
 
   if (orgNotFound || teamNotFound) {
     return (
