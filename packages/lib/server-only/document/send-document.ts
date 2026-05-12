@@ -304,14 +304,24 @@ export const sendDocument = async ({
   // Only send email if one of the following is true:
   // - It is explicitly set
   // - The email is enabled for signing requests AND sendEmail is undefined
+  //
+  // Both the per-recipient signing-request emails and the DOCUMENT_SENT
+  // webhook are queued as background jobs (jobs.triggerJob is an internal
+  // HTTP POST to the job runner). Awaiting them serialised onto the
+  // critical path of the "Send" click: ~100-300ms per recipient + the
+  // webhook subscriber's HTTP round trip (200ms-2s). Fire-and-forget
+  // here — the document row is already PENDING and the audit log is
+  // already written, so failures inside the queue are recoverable
+  // independently. Errors are swallowed to logs to avoid breaking the
+  // response if the job runner is briefly unreachable.
   if (sendEmail || (isRecipientSigningRequestEmailEnabled && sendEmail === undefined)) {
-    await Promise.all(
-      recipientsToNotify.map(async (recipient) => {
-        if (recipient.sendStatus === SendStatus.SENT || recipient.role === RecipientRole.CC) {
-          return;
-        }
+    for (const recipient of recipientsToNotify) {
+      if (recipient.sendStatus === SendStatus.SENT || recipient.role === RecipientRole.CC) {
+        continue;
+      }
 
-        await jobs.triggerJob({
+      void jobs
+        .triggerJob({
           name: 'send.signing.requested.email',
           payload: {
             userId,
@@ -319,17 +329,21 @@ export const sendDocument = async ({
             recipientId: recipient.id,
             requestMetadata: requestMetadata?.requestMetadata,
           },
-        });
-      }),
-    );
+        })
+        .catch((err) =>
+          console.error('Failed to queue signing-request email job:', err, {
+            recipientId: recipient.id,
+          }),
+        );
+    }
   }
 
-  await triggerWebhook({
+  void triggerWebhook({
     event: WebhookTriggerEvents.DOCUMENT_SENT,
     data: ZWebhookDocumentSchema.parse(mapEnvelopeToWebhookDocumentPayload(updatedEnvelope)),
     userId,
     teamId,
-  });
+  }).catch((err) => console.error('Failed to dispatch DOCUMENT_SENT webhook:', err));
 
   return updatedEnvelope;
 };

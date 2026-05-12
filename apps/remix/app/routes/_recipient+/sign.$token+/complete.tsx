@@ -121,8 +121,13 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
   // PROCESSING as success and tells them they'll get the sealed PDF by
   // email. We still poll quietly in the background so that, if the user
   // stays on the page long enough for the seal job to finish, the
-  // Download button appears. Poll every 5s while pending/processing and
-  // stop entirely once the doc reaches a terminal state.
+  // Download button appears. Stop entirely once the doc reaches a
+  // terminal state.
+  //
+  // Polling tuned to be friendlier to the server / battery: the seal job
+  // typically takes 5-20s, and prior to this we hit the API 12 times per
+  // minute even when the user had tabbed away. 15s + no-refetch-on-focus
+  // catches the transition within one cycle without the constant churn.
   const { data: signingStatusData } = trpc.envelope.signingStatus.useQuery(
     {
       token: recipient?.token || '',
@@ -135,8 +140,9 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
           return false;
         }
 
-        return 5000;
+        return 15000;
       },
+      refetchOnWindowFocus: false,
       initialData: match(document?.status)
         .with(DocumentStatus.COMPLETED, () => ({ status: 'COMPLETED' }) as const)
         .with(DocumentStatus.REJECTED, () => ({ status: 'REJECTED' }) as const)
