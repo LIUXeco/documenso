@@ -2,3 +2,12 @@
 
 builder = "DOCKERFILE"
 dockerfilePath = "/docker/Dockerfile"
+
+[deploy]
+# Probe the lightweight /api/health route exposed by apps/remix/server/router.ts
+# so Railway knows the container is alive without hitting Supabase.
+healthcheckPath = "/api/health"
+healthcheckTimeout = 30
+# Restart on crash so a one-off failure doesn't take the service down.
+restartPolicyType = "ON_FAILURE"
+restartPolicyMaxRetries = 3

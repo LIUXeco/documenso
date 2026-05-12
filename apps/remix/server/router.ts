@@ -100,6 +100,12 @@ app.use('/api/v2/*', apiV2RateLimitMiddleware);
 app.use(`/api/v2-beta/*`, cors());
 app.use('/api/v2-beta/*', apiV2RateLimitMiddleware);
 
+// Lightweight health probe for Railway / load balancer liveness checks.
+// Intentionally does NOT hit the database — we only want to confirm the Node
+// process can answer HTTP. A DB-coupled check would fail during a Supabase
+// blip and trigger an unnecessary restart.
+app.get('/api/health', (c) => c.json({ status: 'ok' }));
+
 // Auth server.
 app.route('/api/auth', auth);
 
