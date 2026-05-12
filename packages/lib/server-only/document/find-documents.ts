@@ -16,6 +16,13 @@ import { getTeamById } from '../team/get-team';
 
 export type PeriodSelectorValue = '' | '7d' | '14d' | '30d';
 
+export type FindDocumentsTeam = Pick<Team, 'id'> & {
+  teamEmail: Pick<TeamEmail, 'email'> | null;
+  currentTeamRole: TeamMemberRole;
+};
+
+export type FindDocumentsUser = { id: number; email: string; name: string | null };
+
 export type FindDocumentsOptions = {
   userId: number;
   teamId?: number;
@@ -37,6 +44,18 @@ export type FindDocumentsOptions = {
    * When false, use a full COUNT(*) for exact totals — preferred for external API consumers.
    */
   useWindowedCount?: boolean;
+  /**
+   * Pre-fetched user (typically from the authenticated tRPC context).
+   * When supplied, skips the internal `prisma.user.findFirstOrThrow` round trip.
+   */
+  prefetchedUser?: FindDocumentsUser;
+  /**
+   * Pre-fetched team (typically read from `organisationSessionCache`).
+   * - `undefined`: function will fall back to `getTeamById` when `teamId` is set.
+   * - `null`: explicitly personal mode (no team filter).
+   * - team object: skips the internal `getTeamById` round trip.
+   */
+  prefetchedTeam?: FindDocumentsTeam | null;
 };
 
 /**
@@ -112,16 +131,27 @@ export const findDocuments = async ({
   query = '',
   folderId,
   useWindowedCount = true,
+  prefetchedUser,
+  prefetchedTeam,
 }: FindDocumentsOptions) => {
-  const user = await prisma.user.findFirstOrThrow({
-    where: { id: userId },
-    select: { id: true, email: true, name: true },
-  });
+  // Prefer the caller-supplied user (from authenticated context) so we don't
+  // re-fetch the same row from Supabase that auth already validated.
+  const user =
+    prefetchedUser ??
+    (await prisma.user.findFirstOrThrow({
+      where: { id: userId },
+      select: { id: true, email: true, name: true },
+    }));
 
-  let team = null;
-
-  if (teamId !== undefined) {
+  // `prefetchedTeam` may be explicitly null (personal mode) — only fall back to
+  // a DB fetch when it's undefined AND teamId is set.
+  let team: FindDocumentsTeam | null;
+  if (prefetchedTeam !== undefined) {
+    team = prefetchedTeam;
+  } else if (teamId !== undefined) {
     team = await getTeamById({ userId, teamId });
+  } else {
+    team = null;
   }
 
   const orderByColumn = orderBy?.column ?? 'createdAt';
@@ -301,7 +331,7 @@ export const findDocuments = async ({
 
   const applyTeamFilters = (
     qb: EnvelopeQueryBuilder,
-    teamData: Team & { teamEmail: TeamEmail | null; currentTeamRole: TeamMemberRole },
+    teamData: FindDocumentsTeam,
   ): EnvelopeQueryBuilder | null => {
     const teamEmail = teamData.teamEmail?.email ?? null;
 

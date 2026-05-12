@@ -8,7 +8,11 @@ import {
 import type { Expression, ExpressionBuilder, SelectQueryBuilder, SqlBool } from 'kysely';
 import { DateTime } from 'luxon';
 
-import type { PeriodSelectorValue } from '@documenso/lib/server-only/document/find-documents';
+import type {
+  FindDocumentsTeam,
+  FindDocumentsUser,
+  PeriodSelectorValue,
+} from '@documenso/lib/server-only/document/find-documents';
 import { kyselyPrisma, prisma, sql } from '@documenso/prisma';
 import type { DB } from '@documenso/prisma/generated/types';
 import { ExtendedDocumentStatus } from '@documenso/prisma/types/extended-document-status';
@@ -65,6 +69,16 @@ export type GetStatsInput = {
   search?: string;
   folderId?: string;
   senderIds?: number[];
+  /**
+   * Pre-fetched user (typically from the authenticated tRPC context).
+   * When supplied, skips the internal `prisma.user.findFirstOrThrow` round trip.
+   */
+  prefetchedUser?: FindDocumentsUser;
+  /**
+   * Pre-fetched team (typically read from `organisationSessionCache`).
+   * When supplied, skips the internal `getTeamById` round trip.
+   */
+  prefetchedTeam?: FindDocumentsTeam;
 };
 
 /**
@@ -94,13 +108,19 @@ export const getStats = async ({
   search = '',
   folderId,
   senderIds,
+  prefetchedUser,
+  prefetchedTeam,
 }: GetStatsInput) => {
-  const user = await prisma.user.findFirstOrThrow({
-    where: { id: userId },
-    select: { id: true, email: true },
-  });
+  // Prefer caller-supplied user/team to skip the two sequential Supabase
+  // round trips that previously dominated this query's prelude (~300-500ms).
+  const user =
+    prefetchedUser ??
+    (await prisma.user.findFirstOrThrow({
+      where: { id: userId },
+      select: { id: true, email: true },
+    }));
 
-  const team = await getTeamById({ userId, teamId });
+  const team = prefetchedTeam ?? (await getTeamById({ userId, teamId }));
 
   const teamEmail = team.teamEmail?.email ?? null;
   const currentTeamRole = team.currentTeamRole ?? TeamMemberRole.MEMBER;
