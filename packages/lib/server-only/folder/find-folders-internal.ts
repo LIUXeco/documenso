@@ -48,70 +48,87 @@ export const findFoldersInternal = async ({
       orderBy: [{ pinned: 'desc' }, { createdAt: 'desc' }],
     });
 
-    const foldersWithDetails = await Promise.all(
-      folders.map(async (folder) => {
-        try {
-          const [subfolders, documentCount, templateCount, subfolderCount] = await Promise.all([
-            prisma.folder.findMany({
-              where: {
-                parentId: folder.id,
-                teamId,
-                ...visibilityFilters,
-              },
-              orderBy: {
-                createdAt: 'desc',
-              },
-            }),
-            prisma.envelope.count({
-              where: {
-                type: EnvelopeType.DOCUMENT,
-                folderId: folder.id,
-                deletedAt: null,
-              },
-            }),
-            prisma.envelope.count({
-              where: {
-                type: EnvelopeType.TEMPLATE,
-                folderId: folder.id,
-                deletedAt: null,
-              },
-            }),
-            prisma.folder.count({
-              where: {
-                parentId: folder.id,
-                teamId,
-                ...visibilityFilters,
-              },
-            }),
-          ]);
+    if (folders.length === 0) {
+      return [];
+    }
 
-          const subfoldersWithEmptySubfolders = subfolders.map((subfolder) => ({
-            ...subfolder,
-            subfolders: [],
-            _count: {
-              documents: 0,
-              templates: 0,
-              subfolders: 0,
-            },
-          }));
+    // Resolve every folder's counts and subfolders in three batched queries
+    // instead of 4 per folder. The legacy implementation was 4N+1 queries
+    // for N folders, which on Railway↔Supabase translated to ~3s wall-clock
+    // just on round-trip latency for a typical team. Now it's a constant 4
+    // queries regardless of folder count.
+    const folderIds = folders.map((folder) => folder.id);
 
-          return {
-            ...folder,
-            subfolders: subfoldersWithEmptySubfolders,
-            _count: {
-              documents: documentCount,
-              templates: templateCount,
-              subfolders: subfolderCount,
-            },
-          };
-        } catch (error) {
-          console.error('Error processing folder:', folder.id, error);
-          throw error;
-        }
+    const [documentCountsByFolder, templateCountsByFolder, allSubfolders] = await Promise.all([
+      prisma.envelope.groupBy({
+        by: ['folderId'],
+        where: {
+          folderId: { in: folderIds },
+          type: EnvelopeType.DOCUMENT,
+          deletedAt: null,
+        },
+        _count: { _all: true },
       }),
-    );
+      prisma.envelope.groupBy({
+        by: ['folderId'],
+        where: {
+          folderId: { in: folderIds },
+          type: EnvelopeType.TEMPLATE,
+          deletedAt: null,
+        },
+        _count: { _all: true },
+      }),
+      prisma.folder.findMany({
+        where: {
+          parentId: { in: folderIds },
+          teamId,
+          ...visibilityFilters,
+        },
+        orderBy: { createdAt: 'desc' },
+      }),
+    ]);
 
-    return foldersWithDetails;
+    const docCountByFolder = new Map<string, number>();
+    for (const row of documentCountsByFolder) {
+      if (row.folderId) {
+        docCountByFolder.set(row.folderId, row._count._all);
+      }
+    }
+
+    const templateCountByFolder = new Map<string, number>();
+    for (const row of templateCountsByFolder) {
+      if (row.folderId) {
+        templateCountByFolder.set(row.folderId, row._count._all);
+      }
+    }
+
+    const subfoldersByParent = new Map<string, typeof allSubfolders>();
+    for (const subfolder of allSubfolders) {
+      if (!subfolder.parentId) {
+        continue;
+      }
+      const list = subfoldersByParent.get(subfolder.parentId) ?? [];
+      list.push(subfolder);
+      subfoldersByParent.set(subfolder.parentId, list);
+    }
+
+    return folders.map((folder) => {
+      const subfolders = subfoldersByParent.get(folder.id) ?? [];
+
+      return {
+        ...folder,
+        subfolders: subfolders.map((subfolder) => ({
+          ...subfolder,
+          subfolders: [],
+          _count: { documents: 0, templates: 0, subfolders: 0 },
+        })),
+        _count: {
+          documents: docCountByFolder.get(folder.id) ?? 0,
+          templates: templateCountByFolder.get(folder.id) ?? 0,
+          subfolders: subfolders.length,
+        },
+      };
+    });
   } catch (error) {
     console.error('Error in findFolders:', error);
     throw error;

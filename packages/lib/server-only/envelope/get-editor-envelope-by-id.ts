@@ -45,7 +45,17 @@ export const getEditorEnvelopeById = async ({
     include: {
       envelopeItems: {
         include: {
-          documentData: true,
+          // The editor only reads `documentDataId` (used to lazily fetch
+          // the PDF via /api/files later); the actual `data` / `initialData`
+          // blobs are huge (full PDF base64) and pulling them inline made
+          // `envelope.editor.get` add 2-3s of pointless transfer time.
+          // Keep id + type for downstream type safety, skip the payload.
+          documentData: {
+            select: {
+              id: true,
+              type: true,
+            },
+          },
         },
         orderBy: {
           order: 'asc',

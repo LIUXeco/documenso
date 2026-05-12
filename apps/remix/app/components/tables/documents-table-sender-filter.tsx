@@ -21,9 +21,17 @@ export const DocumentsTableSenderFilter = ({ teamId }: DocumentsTableSenderFilte
     .split(',')
     .filter((value) => value !== '');
 
-  const { data, isLoading } = trpc.team.member.getMany.useQuery({
-    teamId,
-  });
+  const { data, isLoading } = trpc.team.member.getMany.useQuery(
+    {
+      teamId,
+    },
+    {
+      // Team membership rarely changes during a navigation session; cache
+      // for 2 minutes so the document-table sender filter doesn't re-fetch
+      // 1500 teamGroup rows every time the user crosses folders.
+      staleTime: 120_000,
+    },
+  );
 
   const comboBoxOptions = (data ?? []).map((member) => ({
     label: member.name ?? member.email,
@@ -49,7 +57,7 @@ export const DocumentsTableSenderFilter = ({ teamId }: DocumentsTableSenderFilte
   return (
     <MultiSelectCombobox
       emptySelectionPlaceholder={
-        <p className="text-muted-foreground font-normal">
+        <p className="font-normal text-muted-foreground">
           <Trans>
             <span className="text-muted-foreground/70">Sender:</span> All
           </Trans>

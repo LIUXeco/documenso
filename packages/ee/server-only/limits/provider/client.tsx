@@ -1,10 +1,18 @@
-import { createContext, useCallback, useContext, useEffect, useState } from 'react';
+import { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
 
 import { isDeepEqual } from 'remeda';
 
 import { getLimits } from '../client';
 import { DEFAULT_MINIMUM_ENVELOPE_ITEM_COUNT, FREE_PLAN_LIMITS } from '../constants';
 import type { TLimitsResponseSchema } from '../schema';
+
+// Limits change rarely (a new envelope, a subscription tier change). The
+// provider used to refetch on every mount + every window focus, which on
+// Railway↔Supabase costs ~2.5s each time. Throttle automatic refreshes
+// so we don't pay that cost three times in a 40s navigation session.
+// Explicit `refreshLimits()` calls (from mutations that change quota
+// usage) bypass the throttle.
+const LIMITS_AUTO_REFRESH_INTERVAL_MS = 60_000;
 
 export type LimitsContextValue = TLimitsResponseSchema & { refreshLimits: () => Promise<void> };
 
@@ -43,6 +51,13 @@ export const LimitsProvider = ({
   children,
 }: LimitsProviderProps) => {
   const [limits, setLimits] = useState(() => initialValue);
+  // Track when AND for which team the last refresh ran. We need both because
+  // navigating between teams legitimately invalidates the throttle — the
+  // limits returned for team A say nothing about team B's quota.
+  const lastRefreshedRef = useRef<{ at: number; teamId: number | null }>({
+    at: 0,
+    teamId: null,
+  });
 
   const refreshLimits = useCallback(async () => {
     if (disableLimitsFetch) {
@@ -51,6 +66,8 @@ export const LimitsProvider = ({
 
     const newLimits = await getLimits({ teamId });
 
+    lastRefreshedRef.current = { at: Date.now(), teamId };
+
     setLimits((oldLimits) => {
       if (isDeepEqual(oldLimits, newLimits)) {
         return oldLimits;
@@ -58,11 +75,26 @@ export const LimitsProvider = ({
 
       return newLimits;
     });
-  }, [teamId]);
+  }, [teamId, disableLimitsFetch]);
+
+  const maybeRefreshLimits = useCallback(async () => {
+    if (disableLimitsFetch) {
+      return;
+    }
+
+    const isSameTeam = lastRefreshedRef.current.teamId === teamId;
+    const isFresh = Date.now() - lastRefreshedRef.current.at < LIMITS_AUTO_REFRESH_INTERVAL_MS;
+
+    if (isSameTeam && isFresh) {
+      return;
+    }
+
+    await refreshLimits();
+  }, [refreshLimits, disableLimitsFetch, teamId]);
 
   useEffect(() => {
-    void refreshLimits();
-  }, [refreshLimits]);
+    void maybeRefreshLimits();
+  }, [maybeRefreshLimits]);
 
   useEffect(() => {
     if (disableLimitsFetch) {
@@ -70,7 +102,7 @@ export const LimitsProvider = ({
     }
 
     const onFocus = () => {
-      void refreshLimits();
+      void maybeRefreshLimits();
     };
 
     window.addEventListener('focus', onFocus);
@@ -78,7 +110,7 @@ export const LimitsProvider = ({
     return () => {
       window.removeEventListener('focus', onFocus);
     };
-  }, [refreshLimits]);
+  }, [maybeRefreshLimits, disableLimitsFetch]);
 
   return (
     <LimitsContext.Provider

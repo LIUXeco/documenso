@@ -94,6 +94,11 @@ export default function DocumentsPage() {
     },
     {
       ...SKIP_QUERY_BATCH_META,
+      // Cache the document list for 30s. Mutations on documents (upload,
+      // delete, sign) invalidate this explicitly, so the only thing
+      // staleTime protects against is the user re-entering the same folder
+      // shortly after — which on Railway↔Supabase was costing ~7s each time.
+      staleTime: 30_000,
     },
   );
 

@@ -39,10 +39,15 @@ export default function TemplatesFoldersPage() {
   const [folderToSettings, setFolderToSettings] = useState<TFolderWithSubfolders | null>(null);
   const [searchTerm, setSearchTerm] = useState('');
 
-  const { data: foldersData, isLoading: isFoldersLoading } = trpc.folder.getFolders.useQuery({
-    type: FolderType.TEMPLATE,
-    parentId: parentId,
-  });
+  const { data: foldersData, isLoading: isFoldersLoading } = trpc.folder.getFolders.useQuery(
+    {
+      type: FolderType.TEMPLATE,
+      parentId: parentId,
+    },
+    {
+      staleTime: 60_000,
+    },
+  );
 
   const normalizedSearchTerm = searchTerm.trim().toLowerCase();
 

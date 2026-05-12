@@ -37,10 +37,17 @@ export const FolderGrid = ({ type, parentId }: FolderGridProps) => {
   const [isSettingsFolderOpen, setIsSettingsFolderOpen] = useState(false);
   const [folderToSettings, setFolderToSettings] = useState<TFolderWithSubfolders | null>(null);
 
-  const { data: foldersData, isPending } = trpc.folder.getFolders.useQuery({
-    type,
-    parentId,
-  });
+  const { data: foldersData, isPending } = trpc.folder.getFolders.useQuery(
+    {
+      type,
+      parentId,
+    },
+    {
+      // Folder tree changes rarely; cache for 60s so navigating in and out
+      // doesn't re-pay the full Railway↔Supabase query each time.
+      staleTime: 60_000,
+    },
+  );
 
   const formatBreadCrumbPath = (folderId: string) => {
     const rootPath =
