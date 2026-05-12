@@ -115,8 +115,13 @@ export const useEditorFields = ({
     keyName: 'react-hook-form-id',
   });
 
-  const triggerFieldsUpdate = () => {
-    void handleFieldsUpdate(form.getValues().fields);
+  const triggerFieldsUpdate = (override?: TLocalField[]) => {
+    // Allow the caller to supply the canonical field list. We do this when
+    // mutating the form (append/remove/update) right before triggering an
+    // autosave, because `form.getValues()` can momentarily lag behind the
+    // useFieldArray operation under React 18's batching, which previously
+    // caused the very first added field to be saved as an empty list.
+    void handleFieldsUpdate(override ?? form.getValues().fields);
   };
 
   const setSelectedField = (formId: string | null, bypassCheck = false) => {
@@ -151,11 +156,23 @@ export const useEditorFields = ({
       };
 
       append(field);
-      triggerFieldsUpdate();
+
+      // Pass the next field list explicitly. Reading via form.getValues()
+      // right after append() can return the pre-append snapshot in React
+      // 18's batched render path — this manifested as the first-ever added
+      // field being silently saved as an empty array, so the user had to
+      // add it again. Dedup by formId so this still works if RHF *has*
+      // already propagated the append in newer versions.
+      const currentFields = form.getValues().fields;
+      const nextFields = currentFields.some((f) => f.formId === field.formId)
+        ? currentFields
+        : [...currentFields, field];
+      triggerFieldsUpdate(nextFields);
+
       setSelectedField(field.formId, true);
       return field;
     },
-    [append, triggerFieldsUpdate, setSelectedField],
+    [append, form, triggerFieldsUpdate, setSelectedField],
   );
 
   const removeFieldsByFormId = useCallback(
@@ -166,10 +183,18 @@ export const useEditorFields = ({
 
       if (indexes.length > 0) {
         remove(indexes);
-        triggerFieldsUpdate();
+        // Filter the same way ourselves so we don't rely on form.getValues()
+        // having picked up the remove yet — same React 18 batching race as
+        // addField. Otherwise a remove right after an add can resurrect the
+        // deleted field on the next save.
+        const removedFormIds = new Set(formIds);
+        const nextFields = form
+          .getValues()
+          .fields.filter((field) => !removedFormIds.has(field.formId));
+        triggerFieldsUpdate(nextFields);
       }
     },
-    [localFields, remove, triggerFieldsUpdate],
+    [form, localFields, remove, triggerFieldsUpdate],
   );
 
   const setFieldId = (formId: string, id: number) => {
@@ -193,16 +218,22 @@ export const useEditorFields = ({
         const updatedField = {
           ...localFields[index],
           ...updates,
+          ...restrictFieldPosValues({ ...localFields[index], ...updates }),
         };
 
-        update(index, {
-          ...updatedField,
-          ...restrictFieldPosValues(updatedField),
-        });
-        triggerFieldsUpdate();
+        update(index, updatedField);
+
+        // Same batching guard as addField/removeFieldsByFormId — build the
+        // next list from the current form state with our edit applied,
+        // rather than trusting form.getValues() to reflect `update()` yet.
+        const currentFields = form.getValues().fields;
+        const nextFields = currentFields.map((field) =>
+          field.formId === formId ? updatedField : field,
+        );
+        triggerFieldsUpdate(nextFields);
       }
     },
-    [localFields, update, triggerFieldsUpdate],
+    [form, localFields, update, triggerFieldsUpdate],
   );
 
   const duplicateField = useCallback(
@@ -217,10 +248,18 @@ export const useEditorFields = ({
       };
 
       append(newField);
-      triggerFieldsUpdate();
+
+      // Same batching guard as addField — append the duplicated field
+      // explicitly so autosave doesn't fire with the pre-append snapshot.
+      const currentFields = form.getValues().fields;
+      const nextFields = currentFields.some((f) => f.formId === newField.formId)
+        ? currentFields
+        : [...currentFields, newField];
+      triggerFieldsUpdate(nextFields);
+
       return newField;
     },
-    [append, triggerFieldsUpdate],
+    [append, form, triggerFieldsUpdate],
   );
 
   const duplicateFieldToAllPages = useCallback(
@@ -248,10 +287,17 @@ export const useEditorFields = ({
         newFields.push(newField);
       }
 
-      triggerFieldsUpdate();
+      // Build the next list ourselves so the batched appends are all
+      // included in the autosave even if RHF's internal state hasn't
+      // caught up yet.
+      const currentFields = form.getValues().fields;
+      const existingIds = new Set(currentFields.map((f) => f.formId));
+      const nextFields = [...currentFields, ...newFields.filter((f) => !existingIds.has(f.formId))];
+      triggerFieldsUpdate(nextFields);
+
       return newFields;
     },
-    [append, triggerFieldsUpdate],
+    [append, form, triggerFieldsUpdate],
   );
 
   const getFieldByFormId = useCallback(
