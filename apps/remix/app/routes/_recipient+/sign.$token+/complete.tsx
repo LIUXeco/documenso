@@ -117,13 +117,29 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
     returnToHomePath,
   } = loaderData;
 
-  // Poll signing status every few seconds
+  // Poll signing status. While the seal-document background job is running
+  // (status PROCESSING), poll every second so the user sees the page flip
+  // to COMPLETED within ~1s of the job finishing — vs. up to 3s before,
+  // which made the long seal feel even longer. Once the document is
+  // COMPLETED/REJECTED we stop polling entirely.
   const { data: signingStatusData } = trpc.envelope.signingStatus.useQuery(
     {
       token: recipient?.token || '',
     },
     {
-      refetchInterval: 3000,
+      refetchInterval: (query) => {
+        const status = query.state.data?.status;
+
+        if (status === 'COMPLETED' || status === 'REJECTED') {
+          return false;
+        }
+
+        if (status === 'PROCESSING') {
+          return 1000;
+        }
+
+        return 3000;
+      },
       initialData: match(document?.status)
         .with(DocumentStatus.COMPLETED, () => ({ status: 'COMPLETED' }) as const)
         .with(DocumentStatus.REJECTED, () => ({ status: 'REJECTED' }) as const)
@@ -185,7 +201,7 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
               <div className="mt-4 flex items-center text-center text-orange-600">
                 <Loader2 className="mr-2 h-5 w-5 animate-spin" />
                 <span className="text-sm">
-                  <Trans>Processing document</Trans>
+                  <Trans>Sellando el documento firmado</Trans>
                 </span>
               </div>
             ))
@@ -217,8 +233,9 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
             .with({ status: 'PROCESSING' }, () => (
               <p className="mt-2.5 max-w-[60ch] text-center text-sm font-medium text-muted-foreground/60 md:text-base">
                 <Trans>
-                  All recipients have signed. The document is being processed and you will receive
-                  an email copy shortly.
+                  Todas las partes han firmado. Estamos generando y sellando criptográficamente el
+                  documento — este proceso puede tardar entre 1 y 2 minutos. Puedes cerrar esta
+                  ventana: recibirás el documento firmado por email en cuanto esté listo.
                 </Trans>
               </p>
             ))
