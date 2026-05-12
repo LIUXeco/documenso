@@ -83,14 +83,10 @@ export const findInbox = async ({ user, page = 1, perPage = 10, orderBy }: FindI
             url: true,
           },
         },
-        envelopeItems: {
-          select: {
-            id: true,
-            envelopeId: true,
-            title: true,
-            order: true,
-          },
-        },
+        // envelopeItems intentionally omitted: the inbox response schema
+        // (ZDocumentManySchema) doesn't expose them and mapEnvelopesToDocumentMany
+        // doesn't read them, so including them is a wasted EnvelopeItem
+        // round-trip on the inbox hot path.
       },
     }),
     prisma.envelope.count({
