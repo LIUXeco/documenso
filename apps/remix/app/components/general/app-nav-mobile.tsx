@@ -125,12 +125,6 @@ export const AppNavMobile = ({ isMenuOpen, onMenuOpenChange }: AppNavMobileProps
           <div className="w-fit">
             <ThemeSwitcher />
           </div>
-
-          <p className="text-sm text-muted-foreground">
-            © {new Date().getFullYear()} Documenso, Inc.
-            <br />
-            <Trans>All rights reserved.</Trans>
-          </p>
         </div>
       </SheetContent>
     </Sheet>
