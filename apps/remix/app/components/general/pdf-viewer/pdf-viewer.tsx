@@ -97,24 +97,30 @@ export default function PDFViewer({
           return;
         }
 
-        let result: Uint8Array | null = typeof data === 'string' ? null : new Uint8Array(data);
+        // When the caller passes a URL, let pdfjs fetch the file itself with
+        // HTTP range requests instead of pulling the whole binary into memory
+        // before the first page can render. `disableAutoFetch: true` keeps
+        // pdfjs from greedily downloading the entire file once it has the
+        // metadata — large PDFs feel snappier because page 1 renders as soon
+        // as its bytes arrive instead of after the whole document. Requires
+        // the host to honour `Range` requests (S3 / typical CDNs do).
+        //
+        // When the caller already has the bytes (Uint8Array), keep the
+        // legacy direct-load path — no fetching is needed.
+        const loadingTask =
+          typeof data === 'string'
+            ? pdfjsLib.getDocument({
+                url: data,
+                cMapUrl: '/static/cmaps/',
+                disableAutoFetch: true,
+                disableStream: false,
+              })
+            : pdfjsLib.getDocument({
+                data: new Uint8Array(data),
+                cMapUrl: '/static/cmaps/',
+              });
 
-        if (typeof data === 'string') {
-          const response = await fetch(data);
-
-          if (!response.ok) {
-            throw new Error(`Failed to fetch PDF data: ${response.status}`);
-          }
-
-          result = new Uint8Array(await response.arrayBuffer());
-        }
-
-        if (isCancelled) {
-          return;
-        }
-
-        const loadedPdf = await pdfjsLib.getDocument({ data: result!, cMapUrl: '/static/cmaps/' })
-          .promise;
+        const loadedPdf = await loadingTask.promise;
 
         if (isCancelled) {
           await loadedPdf.destroy();

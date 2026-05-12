@@ -1,5 +1,6 @@
 import { prisma } from '@documenso/prisma';
 
+import { invalidateSiteSettingsCache } from './get-site-settings';
 import { type TSiteSettingSchema } from './schema';
 
 export type UpsertSiteSettingOptions = TSiteSettingSchema & {
@@ -12,7 +13,7 @@ export const upsertSiteSetting = async ({
   data,
   userId,
 }: UpsertSiteSettingOptions) => {
-  return await prisma.siteSettings.upsert({
+  const result = await prisma.siteSettings.upsert({
     where: {
       id,
     },
@@ -30,4 +31,11 @@ export const upsertSiteSetting = async ({
       lastModifiedAt: new Date(),
     },
   });
+
+  // Bust the in-process getSiteSettings cache so the change takes effect on
+  // the next render of the same instance (other Railway replicas will pick
+  // it up within the TTL).
+  invalidateSiteSettingsCache();
+
+  return result;
 };

@@ -86,6 +86,11 @@ export const signFieldWithToken = async ({
       envelope: {
         include: {
           recipients: true,
+          // Pull documentMeta here so we don't pay a separate round-trip
+          // below — every field sign hits this codepath, so cutting one
+          // Railway↔Supabase hop noticeably shrinks the per-field latency
+          // the signer perceives while filling the form.
+          documentMeta: true,
         },
       },
       recipient: true,
@@ -183,13 +188,9 @@ export const signFieldWithToken = async ({
     authOptions,
   });
 
-  const documentMeta = await prisma.documentMeta.findFirst({
-    where: {
-      envelope: {
-        id: envelope.id,
-      },
-    },
-  });
+  // documentMeta is now eagerly loaded via the envelope include above; the
+  // legacy separate findFirst was a wasted round-trip on every field sign.
+  const { documentMeta } = envelope;
 
   const isSignatureField =
     field.type === FieldType.SIGNATURE || field.type === FieldType.FREE_SIGNATURE;
