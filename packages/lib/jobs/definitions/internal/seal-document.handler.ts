@@ -204,87 +204,91 @@ export const run = async ({
     const needsCertificate = settings.includeSigningCertificate;
     const needsAuditLog = settings.includeAuditLog;
 
-    const newDocumentData: Array<{ oldDocumentDataId: string; newDocumentDataId: string }> = [];
+    // Process every envelope item in parallel. Each one is independent —
+    // its own PDF load, certificate, audit log, and crypto signing — and the
+    // legacy sequential `for` loop multiplied the wall-clock seal time by
+    // the number of items in the envelope. Single-item envelopes see no
+    // regression; multi-item envelopes scale roughly with max(item) instead
+    // of sum(items).
+    const newDocumentData = await Promise.all(
+      prefetchedItems.map(async ({ envelopeItem, pdfData }) => {
+        const envelopeItemFields = envelope.envelopeItems.find(
+          (item) => item.id === envelopeItem.id,
+        )?.field;
 
-    for (const { envelopeItem, pdfData } of prefetchedItems) {
-      const envelopeItemFields = envelope.envelopeItems.find(
-        (item) => item.id === envelopeItem.id,
-      )?.field;
+        if (!envelopeItemFields) {
+          throw new Error(`Envelope item fields not found for envelope item ${envelopeItem.id}`);
+        }
 
-      if (!envelopeItemFields) {
-        throw new Error(`Envelope item fields not found for envelope item ${envelopeItem.id}`);
-      }
+        let certificateDoc: PDF | null = null;
+        let auditLogDoc: PDF | null = null;
 
-      let certificateDoc: PDF | null = null;
-      let auditLogDoc: PDF | null = null;
+        if (needsCertificate || needsAuditLog) {
+          const pdfDoc = await PDF.load(pdfData);
 
-      if (needsCertificate || needsAuditLog) {
-        const pdfDoc = await PDF.load(pdfData);
+          const { width: pageWidth, height: pageHeight } = getLastPageDimensions(pdfDoc);
 
-        const { width: pageWidth, height: pageHeight } = getLastPageDimensions(pdfDoc);
+          const additionalAuditLogs = [
+            // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+            {
+              ...envelopeCompletedAuditLog,
+              id: '',
+              createdAt: new Date(),
+            } as TDocumentAuditLog,
+          ];
 
-        const additionalAuditLogs = [
-          // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
-          {
-            ...envelopeCompletedAuditLog,
-            id: '',
-            createdAt: new Date(),
-          } as TDocumentAuditLog,
-        ];
+          const certificatePayload = {
+            envelope: {
+              ...envelope,
+              status: finalEnvelopeStatus,
+            },
+            recipients: envelope.recipients,
+            fields,
+            language: envelope.documentMeta.language,
+            envelopeOwner: {
+              email: envelope.user.email,
+              name: envelope.user.name || '',
+            },
+            envelopeItems: envelopeItems.map((item) => item.title),
+            pageWidth,
+            pageHeight,
+            additionalAuditLogs,
+          };
 
-        const certificatePayload = {
-          envelope: {
-            ...envelope,
-            status: finalEnvelopeStatus,
-          },
-          recipients: envelope.recipients,
-          fields,
-          language: envelope.documentMeta.language,
-          envelopeOwner: {
-            email: envelope.user.email,
-            name: envelope.user.name || '',
-          },
-          envelopeItems: envelopeItems.map((item) => item.title),
-          pageWidth,
-          pageHeight,
-          additionalAuditLogs,
-        };
+          const makeCertificatePdf = async () =>
+            usePlaywrightPdf
+              ? getCertificatePdf({
+                  documentId,
+                  language: envelope.documentMeta.language,
+                }).then(async (buffer) => PDF.load(buffer))
+              : generateCertificatePdf(certificatePayload);
 
-        const makeCertificatePdf = async () =>
-          usePlaywrightPdf
-            ? getCertificatePdf({
-                documentId,
-                language: envelope.documentMeta.language,
-              }).then(async (buffer) => PDF.load(buffer))
-            : generateCertificatePdf(certificatePayload);
+          const makeAuditLogPdf = async () =>
+            usePlaywrightPdf
+              ? getAuditLogsPdf({
+                  documentId,
+                  language: envelope.documentMeta.language,
+                }).then(async (buffer) => PDF.load(buffer))
+              : generateAuditLogPdf(certificatePayload);
 
-        const makeAuditLogPdf = async () =>
-          usePlaywrightPdf
-            ? getAuditLogsPdf({
-                documentId,
-                language: envelope.documentMeta.language,
-              }).then(async (buffer) => PDF.load(buffer))
-            : generateAuditLogPdf(certificatePayload);
+          [certificateDoc, auditLogDoc] = await Promise.all([
+            needsCertificate ? makeCertificatePdf() : null,
+            needsAuditLog ? makeAuditLogPdf() : null,
+          ]);
+        }
 
-        [certificateDoc, auditLogDoc] = await Promise.all([
-          needsCertificate ? makeCertificatePdf() : null,
-          needsAuditLog ? makeAuditLogPdf() : null,
-        ]);
-      }
-
-      const result = await decorateAndSignPdf({
-        envelope,
-        envelopeItem,
-        envelopeItemFields,
-        isRejected,
-        rejectionReason,
-        pdfData,
-        certificateDoc,
-        auditLogDoc,
-      });
-
-      newDocumentData.push(result);
-    }
+        return await decorateAndSignPdf({
+          envelope,
+          envelopeItem,
+          envelopeItemFields,
+          isRejected,
+          rejectionReason,
+          pdfData,
+          certificateDoc,
+          auditLogDoc,
+        });
+      }),
+    );
 
     await prisma.$transaction(async (tx) => {
       for (const { oldDocumentDataId, newDocumentDataId } of newDocumentData) {

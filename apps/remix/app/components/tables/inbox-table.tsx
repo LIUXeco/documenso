@@ -49,10 +49,20 @@ export const InboxTable = () => {
   const page = searchParams?.get?.('page') ? Number(searchParams.get('page')) : undefined;
   const perPage = searchParams?.get?.('perPage') ? Number(searchParams.get('perPage')) : undefined;
 
-  const { data, isLoading, isLoadingError } = trpc.document.inbox.find.useQuery({
-    page: page || 1,
-    perPage: perPage || 10,
-  });
+  // The inbox query is the slowest server-side procedure on this page
+  // (Recipient EXISTS subquery + count + relation loads). Cache for 30s so
+  // navigating away and back doesn't re-pay the wait — mutations that
+  // affect the inbox (signing, rejecting, sending) invalidate this on
+  // their own.
+  const { data, isLoading, isLoadingError } = trpc.document.inbox.find.useQuery(
+    {
+      page: page || 1,
+      perPage: perPage || 10,
+    },
+    {
+      staleTime: 30_000,
+    },
+  );
 
   const columns = useMemo(() => {
     return [
@@ -130,7 +140,7 @@ export const InboxTable = () => {
           enable: isLoadingError || false,
         }}
         emptyState={
-          <div className="text-muted-foreground/60 flex h-60 flex-col items-center justify-center gap-y-4">
+          <div className="flex h-60 flex-col items-center justify-center gap-y-4 text-muted-foreground/60">
             <p>
               <Trans>Documents that require your attention will appear here</Trans>
             </p>
@@ -170,8 +180,8 @@ export const InboxTable = () => {
       </DataTable>
 
       {isPending && (
-        <div className="bg-background/50 absolute inset-0 flex items-center justify-center">
-          <Loader className="text-muted-foreground h-8 w-8 animate-spin" />
+        <div className="absolute inset-0 flex items-center justify-center bg-background/50">
+          <Loader className="h-8 w-8 animate-spin text-muted-foreground" />
         </div>
       )}
     </div>

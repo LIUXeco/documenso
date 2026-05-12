@@ -6,6 +6,7 @@ import { AnimatePresence } from 'framer-motion';
 import { BellIcon } from 'lucide-react';
 
 import { useSession } from '@documenso/lib/client-only/providers/session';
+import { SKIP_QUERY_BATCH_META } from '@documenso/lib/constants/trpc';
 import { formatAvatarUrl } from '@documenso/lib/utils/avatars';
 import { trpc } from '@documenso/trpc/react';
 import { AnimateGenericFadeInOut } from '@documenso/ui/components/animate/animate-generic-fade-in-out';
@@ -23,9 +24,19 @@ import {
 import { useToast } from '@documenso/ui/primitives/use-toast';
 
 export const OrganisationInvitations = ({ className }: { className?: string }) => {
-  const { data, isLoading } = trpc.organisation.member.invite.getMany.useQuery({
-    status: OrganisationMemberInviteStatus.PENDING,
-  });
+  // Take this off the inbox tRPC batch so the table doesn't have to wait
+  // for the pending-invite lookup before rendering. Cache the result for
+  // 60s — pending invites are mutated only by explicit accept/decline flows
+  // which invalidate on their own.
+  const { data, isLoading } = trpc.organisation.member.invite.getMany.useQuery(
+    {
+      status: OrganisationMemberInviteStatus.PENDING,
+    },
+    {
+      ...SKIP_QUERY_BATCH_META,
+      staleTime: 60_000,
+    },
+  );
 
   return (
     <AnimatePresence>
@@ -90,7 +101,7 @@ export const OrganisationInvitations = ({ className }: { className?: string }) =
                             className="w-full max-w-none py-4"
                             avatarFallback={invitation.organisation.name.slice(0, 1)}
                             primaryText={
-                              <span className="text-foreground/80 font-semibold">
+                              <span className="font-semibold text-foreground/80">
                                 {invitation.organisation.name}
                               </span>
                             }

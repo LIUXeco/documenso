@@ -30,12 +30,15 @@ export const Header = ({ className, ...props }: HeaderProps) => {
   const [isHamburgerMenuOpen, setIsHamburgerMenuOpen] = useState(false);
   const [scrollY, setScrollY] = useState(0);
 
+  // Unread-badge count. Cache for 60s — the badge is a soft cue, it
+  // doesn't need to be exact to the second, and a fresh count is fetched
+  // when the inbox page mounts anyway.
   const { data: unreadCountData } = trpc.document.inbox.getCount.useQuery(
     {
       readStatus: ReadStatus.NOT_OPENED,
     },
     {
-      // refetchInterval: 30000, // Refetch every 30 seconds
+      staleTime: 60_000,
     },
   );
 
