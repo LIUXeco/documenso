@@ -443,6 +443,14 @@ model Envelope {
   @@index([teamId])
   @@index([folderId])
   @@index([createdAt])
+  // Covers the paginated team-scoped document list query in
+  // find-documents.ts: filters on (teamId, folderId, status) plus
+  // ORDER BY createdAt DESC. Postgres can also use the left prefix for
+  // queries that filter on just teamId or teamId+folderId.
+  @@index([teamId, folderId, status, createdAt(sort: Desc)])
+  // Trigram index for ILIKE %query% search on title. Without this the
+  // document list search falls back to a sequential scan.
+  @@index([title(ops: raw("gin_trgm_ops"))], map: "Envelope_title_trgm_idx", type: Gin)
 }
 
 model EnvelopeItem {
@@ -481,6 +489,9 @@ model DocumentAuditLog {
   envelope Envelope? @relation(fields: [envelopeId], references: [id], onDelete: SetNull)
 
   @@index([envelopeId])
+  // Audit log pagination on the per-document view orders by createdAt DESC
+  // after filtering by envelopeId.
+  @@index([envelopeId, createdAt(sort: Desc)])
 }
 
 enum DocumentDataType {
@@ -612,6 +623,11 @@ model Recipient {
   @@index([email, documentDeletedAt, envelopeId], map: "Recipient_email_documentDeletedAt_envelopeId_idx")
   @@index([email, envelopeId], map: "Recipient_email_envelopeId_idx")
   @@index([email, signingStatus, envelopeId, role], map: "Recipient_email_signingStatus_envelopeId_role_idx")
+  // Covers the "find next unsigned non-CC recipient in this envelope" query
+  // used by complete-document-with-token and the sequential-signing path.
+  // The (email, signingStatus, envelopeId, role) index above is not usable
+  // for these queries because the email column isn't filtered.
+  @@index([envelopeId, signingStatus, role])
   @@index([nextReminderAt])
   @@index([email(ops: raw("gin_trgm_ops"))], map: "Recipient_email_trgm_idx", type: Gin)
   @@index([name(ops: raw("gin_trgm_ops"))], map: "Recipient_name_trgm_idx", type: Gin)
@@ -744,6 +760,11 @@ model OrganisationMember {
 
   @@unique([userId, organisationId])
   @@index([organisationId])
+  // Paginated organisation-member list orders by createdAt DESC after
+  // filtering by organisationId. Without this the planner has to filter
+  // by organisationId then sort, which is fine on small orgs but degrades
+  // visibly on orgs with hundreds of members.
+  @@index([organisationId, createdAt(sort: Desc)])
 }
 
 model OrganisationMemberInvite {
