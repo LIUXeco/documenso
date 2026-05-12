@@ -147,7 +147,14 @@ export const resendDocument = async ({
       meta: envelope.documentMeta,
     });
 
-  await Promise.all(
+  // Dispatch reminders in the background. Each reminder calls
+  // mailer.sendMail() synchronously, which on real SMTP providers takes
+  // 5-15s per recipient. With N recipients the user used to wait the
+  // slowest provider × N before the "Resend" button settled — now the
+  // request returns immediately and the emails fan out off the
+  // critical path. Failures are logged for ops visibility; the user can
+  // re-trigger from the UI if needed.
+  void Promise.allSettled(
     recipientsToRemind.map(async (recipient) => {
       if (recipient.role === RecipientRole.CC || !isRecipientEmailValidForSending(recipient)) {
         return;
@@ -260,7 +267,18 @@ export const resendDocument = async ({
         }),
       });
     }),
-  );
+  ).then((results) => {
+    const failed = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
+
+    if (failed.length > 0) {
+      console.error(
+        `Document reminder email delivery failed for ${failed.length}/${recipientsToRemind.length} recipients:`,
+        JSON.stringify(failed),
+      );
+    }
+  });
 
   await triggerWebhook({
     event: WebhookTriggerEvents.DOCUMENT_REMINDER_SENT,

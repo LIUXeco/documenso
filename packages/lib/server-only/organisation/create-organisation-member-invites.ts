@@ -188,11 +188,19 @@ export const createOrganisationMemberInvites = async ({
     return { email, token: existing.token };
   });
 
-  const sendEmailResult = await Promise.allSettled(
-    [
-      ...organisationMemberInvites.map(({ email, token }) => ({ email, token })),
-      ...resendEmailJobs.filter((job): job is { email: string; token: string } => job !== null),
-    ].map(async ({ email, token }) =>
+  // The OrganisationMemberInvite rows were already persisted above via
+  // createMany — the invitees exist in the org's "pending invites" list
+  // and the admin can resend from the UI if any individual send fails.
+  // Fire the SMTP sends in the background so the admin's "Invite" button
+  // doesn't sit on a spinner for N×5-15s while we await every provider.
+  // Errors are logged for ops visibility.
+  const allEmailsToSend = [
+    ...organisationMemberInvites.map(({ email, token }) => ({ email, token })),
+    ...resendEmailJobs.filter((job): job is { email: string; token: string } => job !== null),
+  ];
+
+  void Promise.allSettled(
+    allEmailsToSend.map(async ({ email, token }) =>
       sendOrganisationMemberInviteEmail({
         email,
         token,
@@ -200,22 +208,18 @@ export const createOrganisationMemberInvites = async ({
         senderName: userName,
       }),
     ),
-  );
+  ).then((results) => {
+    const failed = results.filter(
+      (result): result is PromiseRejectedResult => result.status === 'rejected',
+    );
 
-  const sendEmailResultErrorList = sendEmailResult.filter(
-    (result): result is PromiseRejectedResult => result.status === 'rejected',
-  );
-
-  const totalEmailsSent = organisationMemberInvites.length + resendEmailJobs.length;
-
-  if (sendEmailResultErrorList.length > 0) {
-    console.error(JSON.stringify(sendEmailResultErrorList));
-
-    throw new AppError('EmailDeliveryFailed', {
-      message: 'Failed to send invite emails to one or more users.',
-      userMessage: `Failed to send invites to ${sendEmailResultErrorList.length}/${totalEmailsSent} users.`,
-    });
-  }
+    if (failed.length > 0) {
+      console.error(
+        `Organisation invite email delivery failed for ${failed.length}/${allEmailsToSend.length} invitees:`,
+        JSON.stringify(failed),
+      );
+    }
+  });
 };
 
 type SendOrganisationMemberInviteEmailOptions = {

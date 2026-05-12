@@ -76,61 +76,81 @@ export const send2FATokenEmail = async ({ token, envelopeId }: Send2FATokenEmail
     });
   }
 
+  // The token row MUST be persisted before we return — the signer will
+  // type the code into the UI and we need to validate against this row.
   const twoFactorTokenToken = await generateTwoFactorTokenFromEmail({
     envelopeId,
     email: recipient.email,
   });
 
-  const { branding, emailLanguage, senderEmail, replyToEmail } = await getEmailContext({
-    emailType: 'RECIPIENT',
-    source: {
-      type: 'team',
-      teamId: envelope.teamId,
-    },
-    meta: envelope.documentMeta,
-  });
+  // Audit log + email send don't gate the signer's UX (the spinner closes
+  // as soon as we resolve). Fire them in parallel — and put the SMTP
+  // send behind a void so we don't block the caller on slow providers.
+  // Without this, mailer.sendMail() can take 5-15s and the user sees a
+  // frozen "Send code" button for that whole window.
+  const auditLogPromise = prisma.documentAuditLog
+    .create({
+      data: createDocumentAuditLogData({
+        type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_ACCESS_AUTH_2FA_REQUESTED,
+        envelopeId: envelope.id,
+        data: {
+          recipientEmail: recipient.email,
+          recipientName: recipient.name,
+          recipientId: recipient.id,
+        },
+      }),
+    })
+    .catch((err) => {
+      console.error('Failed to write 2FA audit log:', err);
+    });
 
-  const i18n = await getI18nInstance(emailLanguage);
+  void (async () => {
+    try {
+      const { branding, emailLanguage, senderEmail, replyToEmail } = await getEmailContext({
+        emailType: 'RECIPIENT',
+        source: {
+          type: 'team',
+          teamId: envelope.teamId,
+        },
+        meta: envelope.documentMeta,
+      });
 
-  const subject = i18n._(msg`Your two-factor authentication code`);
+      const i18n = await getI18nInstance(emailLanguage);
 
-  const template = createElement(AccessAuth2FAEmailTemplate, {
-    documentTitle: envelope.title,
-    userName: recipient.name,
-    userEmail: recipient.email,
-    code: twoFactorTokenToken,
-    expiresInMinutes: TWO_FACTOR_EMAIL_EXPIRATION_MINUTES,
-    assetBaseUrl: NEXT_PUBLIC_WEBAPP_URL(),
-  });
+      const subject = i18n._(msg`Your two-factor authentication code`);
 
-  const [html, text] = await Promise.all([
-    renderEmailWithI18N(template, { lang: emailLanguage, branding }),
-    renderEmailWithI18N(template, { lang: emailLanguage, branding, plainText: true }),
-  ]);
+      const template = createElement(AccessAuth2FAEmailTemplate, {
+        documentTitle: envelope.title,
+        userName: recipient.name,
+        userEmail: recipient.email,
+        code: twoFactorTokenToken,
+        expiresInMinutes: TWO_FACTOR_EMAIL_EXPIRATION_MINUTES,
+        assetBaseUrl: NEXT_PUBLIC_WEBAPP_URL(),
+      });
 
-  // Send email outside any transaction to avoid holding a connection
-  // open during network I/O.
-  await mailer.sendMail({
-    to: {
-      address: recipient.email,
-      name: recipient.name,
-    },
-    from: senderEmail,
-    replyTo: replyToEmail,
-    subject,
-    html,
-    text,
-  });
+      const [html, text] = await Promise.all([
+        renderEmailWithI18N(template, { lang: emailLanguage, branding }),
+        renderEmailWithI18N(template, { lang: emailLanguage, branding, plainText: true }),
+      ]);
 
-  await prisma.documentAuditLog.create({
-    data: createDocumentAuditLogData({
-      type: DOCUMENT_AUDIT_LOG_TYPE.DOCUMENT_ACCESS_AUTH_2FA_REQUESTED,
-      envelopeId: envelope.id,
-      data: {
-        recipientEmail: recipient.email,
-        recipientName: recipient.name,
-        recipientId: recipient.id,
-      },
-    }),
-  });
+      await mailer.sendMail({
+        to: {
+          address: recipient.email,
+          name: recipient.name,
+        },
+        from: senderEmail,
+        replyTo: replyToEmail,
+        subject,
+        html,
+        text,
+      });
+    } catch (err) {
+      console.error('Failed to send 2FA token email:', err);
+    }
+  })();
+
+  // We still await the audit log so the caller's "success" response only
+  // resolves after the request's bookkeeping has landed; the slow SMTP
+  // hop above is the only thing that runs in the background.
+  await auditLogPromise;
 };

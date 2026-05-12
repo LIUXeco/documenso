@@ -138,49 +138,59 @@ export const deleteEnvelopeRecipient = async ({
     envelope.documentMeta,
   ).recipientRemoved;
 
-  // Send email to deleted recipient.
+  // Send the "you were removed" email in the background. mailer.sendMail
+  // talks SMTP synchronously (5-15s on real providers); the recipient
+  // delete already committed above, so there's no reason to keep the
+  // admin's "Remove recipient" click spinning while we tell the removed
+  // signer about it.
   if (
     recipientToDelete.sendStatus === SendStatus.SENT &&
     isRecipientRemovedEmailEnabled &&
     envelope.type === EnvelopeType.DOCUMENT &&
     isRecipientEmailValidForSending(recipientToDelete)
   ) {
-    const assetBaseUrl = NEXT_PUBLIC_WEBAPP_URL() || 'http://localhost:3000';
+    void (async () => {
+      try {
+        const assetBaseUrl = NEXT_PUBLIC_WEBAPP_URL() || 'http://localhost:3000';
 
-    const template = createElement(RecipientRemovedFromDocumentTemplate, {
-      documentName: envelope.title,
-      inviterName: envelope.team?.name || user.name || undefined,
-      assetBaseUrl,
-      organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
-    });
+        const template = createElement(RecipientRemovedFromDocumentTemplate, {
+          documentName: envelope.title,
+          inviterName: envelope.team?.name || user.name || undefined,
+          assetBaseUrl,
+          organisationName: envelope.team?.organisation?.name ?? envelope.team?.name,
+        });
 
-    const { branding, emailLanguage, senderEmail, replyToEmail } = await getEmailContext({
-      emailType: 'RECIPIENT',
-      source: {
-        type: 'team',
-        teamId: envelope.teamId,
-      },
-      meta: envelope.documentMeta,
-    });
+        const { branding, emailLanguage, senderEmail, replyToEmail } = await getEmailContext({
+          emailType: 'RECIPIENT',
+          source: {
+            type: 'team',
+            teamId: envelope.teamId,
+          },
+          meta: envelope.documentMeta,
+        });
 
-    const [html, text] = await Promise.all([
-      renderEmailWithI18N(template, { lang: emailLanguage, branding }),
-      renderEmailWithI18N(template, { lang: emailLanguage, branding, plainText: true }),
-    ]);
+        const [html, text] = await Promise.all([
+          renderEmailWithI18N(template, { lang: emailLanguage, branding }),
+          renderEmailWithI18N(template, { lang: emailLanguage, branding, plainText: true }),
+        ]);
 
-    const i18n = await getI18nInstance(emailLanguage);
+        const i18n = await getI18nInstance(emailLanguage);
 
-    await mailer.sendMail({
-      to: {
-        address: recipientToDelete.email,
-        name: recipientToDelete.name,
-      },
-      from: senderEmail,
-      replyTo: replyToEmail,
-      subject: i18n._(msg`You have been removed from a document`),
-      html,
-      text,
-    });
+        await mailer.sendMail({
+          to: {
+            address: recipientToDelete.email,
+            name: recipientToDelete.name,
+          },
+          from: senderEmail,
+          replyTo: replyToEmail,
+          subject: i18n._(msg`You have been removed from a document`),
+          html,
+          text,
+        });
+      } catch (err) {
+        console.error('Failed to send recipient-removed email:', err);
+      }
+    })();
   }
 
   return deletedRecipient;
