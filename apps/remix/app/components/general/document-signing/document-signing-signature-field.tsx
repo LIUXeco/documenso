@@ -26,6 +26,7 @@ import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-p
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { useRequiredDocumentSigningContext } from './document-signing-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 type SignatureFieldState = 'empty' | 'signed-image' | 'signed-text';
 
@@ -72,15 +73,22 @@ export const DocumentSigningSignatureField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const { signature } = field;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { signature } = effectiveField;
+
+  // Suppress the spinner while the optimistic state is showing the
+  // signature; the network mutation runs in the background and the user
+  // is already seeing the saved state.
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
 
   const [showSignatureModal, setShowSignatureModal] = useState(false);
   const [localSignature, setLocalSignature] = useState<string | null>(null);
 
   const state = useMemo<SignatureFieldState>(() => {
-    if (!field.inserted) {
+    if (!effectiveField.inserted) {
       return 'empty';
     }
 
@@ -89,7 +97,7 @@ export const DocumentSigningSignatureField = ({
     }
 
     return 'signed-text';
-  }, [field.inserted, signature?.signatureImageAsBase64]);
+  }, [effectiveField.inserted, signature?.signatureImageAsBase64]);
 
   const onPreSign = () => {
     if (!providedSignature) {
@@ -117,42 +125,62 @@ export const DocumentSigningSignatureField = ({
   };
 
   const onSign = async (authOptions?: TRecipientActionAuth, signature?: string) => {
-    try {
-      const value = signature || providedSignature;
+    const value = signature || providedSignature;
 
-      if (!value) {
-        setShowSignatureModal(true);
-        return;
-      }
+    if (!value) {
+      setShowSignatureModal(true);
+      return;
+    }
 
-      const isTypedSignature = !value.startsWith('data:image');
+    const isTypedSignature = !value.startsWith('data:image');
 
-      if (isTypedSignature && typedSignatureEnabled === false) {
-        toast({
-          title: _(msg`Error`),
-          description: _(msg`Typed signatures are not allowed. Please draw your signature.`),
-          variant: 'destructive',
-        });
+    if (isTypedSignature && typedSignatureEnabled === false) {
+      toast({
+        title: _(msg`Error`),
+        description: _(msg`Typed signatures are not allowed. Please draw your signature.`),
+        variant: 'destructive',
+      });
 
-        return;
-      }
+      return;
+    }
 
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
+    // Flip the signature field to "signed" immediately. Mirrors the same
+    // optimistic strategy used for the other fields — the signer sees their
+    // signature land in place while the round-trip + crypto work happens
+    // off the critical path.
+    markOptimistic({
+      // eslint-disable-next-line @typescript-eslint/consistent-type-assertions
+      signature: {
+        ...(field.signature ?? {}),
+        id: field.signature?.id ?? -1,
         fieldId: field.id,
-        value,
-        isBase64: !isTypedSignature,
-        authOptions,
-      };
+        recipientId: field.recipientId ?? -1,
+        created: field.signature?.created ?? new Date(),
+        signatureImageAsBase64: isTypedSignature ? null : value,
+        typedSignature: isTypedSignature ? value : null,
+      } as FieldWithSignature['signature'],
+    });
 
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value,
+      isBase64: !isTypedSignature,
+      authOptions,
+    };
+
+    try {
       if (onSignField) {
         await onSignField(payload);
       } else {
         await signFieldWithToken(payload);
       }
 
-      await revalidate();
+      // Background revalidate — UI is already showing the signed state.
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -170,12 +198,15 @@ export const DocumentSigningSignatureField = ({
   };
 
   const onRemove = async () => {
-    try {
-      const payload: TRemovedSignedFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-      };
+    const previousSignature = effectiveField.signature;
+    clearOptimistic();
 
+    const payload: TRemovedSignedFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+    };
+
+    try {
       if (onUnsignField) {
         await onUnsignField(payload);
         return;
@@ -183,8 +214,14 @@ export const DocumentSigningSignatureField = ({
         await removeSignedFieldWithToken(payload);
       }
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      // Restore the optimistic-signed state so the user doesn't think
+      // their work disappeared because of a transient remove failure.
+      if (previousSignature) {
+        markOptimistic({ signature: previousSignature });
+      }
+
       console.error(err);
 
       toast({
@@ -232,7 +269,7 @@ export const DocumentSigningSignatureField = ({
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onPreSign={onPreSign}
       onSign={onSign}
       onRemove={onRemove}

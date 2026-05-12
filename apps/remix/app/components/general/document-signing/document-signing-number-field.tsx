@@ -30,6 +30,7 @@ import {
   DocumentSigningFieldsUninserted,
 } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 type ValidationErrors = {
   isNumber: string[];
@@ -86,7 +87,11 @@ export const DocumentSigningNumberField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
 
   const handleNumberChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const text = e.target.value;
@@ -120,19 +125,23 @@ export const DocumentSigningNumberField = ({
   };
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    if (!localNumber || Object.values(errors).some((error) => error.length > 0)) {
+      return;
+    }
+
+    const valueToInsert = localNumber;
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value: valueToInsert,
+      isBase64: true,
+      authOptions,
+    };
+
+    markOptimistic({ customText: valueToInsert });
+
     try {
-      if (!localNumber || Object.values(errors).some((error) => error.length > 0)) {
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value: localNumber,
-        isBase64: true,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
         return;
@@ -142,8 +151,10 @@ export const DocumentSigningNumberField = ({
 
       setLocalNumber('');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -184,6 +195,9 @@ export const DocumentSigningNumberField = ({
   };
 
   const onRemove = async () => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -199,8 +213,12 @@ export const DocumentSigningNumberField = ({
 
       setLocalNumber(parsedFieldMeta?.value ? String(parsedFieldMeta?.value) : '');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -240,7 +258,7 @@ export const DocumentSigningNumberField = ({
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onPreSign={onPreSign}
       onSign={onSign}
       onRemove={onRemove}
@@ -248,13 +266,13 @@ export const DocumentSigningNumberField = ({
     >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <DocumentSigningFieldsUninserted>{fieldDisplayName}</DocumentSigningFieldsUninserted>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {effectiveField.customText}
         </DocumentSigningFieldsInserted>
       )}
 

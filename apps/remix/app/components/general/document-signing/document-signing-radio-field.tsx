@@ -22,6 +22,7 @@ import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-p
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { DocumentSigningFieldsLoader } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningRadioFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -61,26 +62,34 @@ export const DocumentSigningRadioField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
   const shouldAutoSignField =
     (!field.inserted && selectedOption) ||
     (!field.inserted && defaultValue) ||
     (!field.inserted && parsedFieldMeta.readOnly && defaultValue);
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    if (!selectedOption) {
+      return;
+    }
+
+    const valueToInsert = selectedOption;
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value: valueToInsert,
+      isBase64: true,
+      authOptions,
+    };
+
+    markOptimistic({ customText: valueToInsert });
+
     try {
-      if (!selectedOption) {
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value: selectedOption,
-        isBase64: true,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
       } else {
@@ -89,8 +98,10 @@ export const DocumentSigningRadioField = ({
 
       setSelectedOption('');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -110,6 +121,9 @@ export const DocumentSigningRadioField = ({
   };
 
   const onRemove = async () => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -124,8 +138,12 @@ export const DocumentSigningRadioField = ({
 
       setSelectedOption('');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -150,10 +168,15 @@ export const DocumentSigningRadioField = ({
   }, [selectedOption, field]);
 
   return (
-    <DocumentSigningFieldContainer field={field} onSign={onSign} onRemove={onRemove} type="Radio">
+    <DocumentSigningFieldContainer
+      field={effectiveField}
+      onSign={onSign}
+      onRemove={onRemove}
+      type="Radio"
+    >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <RadioGroup
           onValueChange={(value) => handleSelectItem(value)}
           className="z-10 my-0.5 gap-y-1"
@@ -170,7 +193,7 @@ export const DocumentSigningRadioField = ({
               {!item.value.includes('empty-value-') && item.value && (
                 <Label
                   htmlFor={`option-${field.id}-${item.id}`}
-                  className="text-foreground ml-1.5 text-xs font-normal"
+                  className="ml-1.5 text-xs font-normal text-foreground"
                 >
                   {item.value}
                 </Label>
@@ -180,7 +203,7 @@ export const DocumentSigningRadioField = ({
         </RadioGroup>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <RadioGroup className="my-0.5 gap-y-1">
           {values?.map((item, index) => (
             <div key={index} className="flex items-center">
@@ -188,13 +211,13 @@ export const DocumentSigningRadioField = ({
                 className="h-3 w-3"
                 value={item.value}
                 id={`option-${field.id}-${item.id}`}
-                checked={item.value === field.customText}
+                checked={item.value === effectiveField.customText}
                 disabled={isReadOnly}
               />
               {!item.value.includes('empty-value-') && item.value && (
                 <Label
                   htmlFor={`option-${field.id}-${item.id}`}
-                  className="text-foreground ml-1.5 text-xs font-normal"
+                  className="ml-1.5 text-xs font-normal text-foreground"
                 >
                   {item.value}
                 </Label>

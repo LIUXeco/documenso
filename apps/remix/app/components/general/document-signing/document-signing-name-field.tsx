@@ -30,6 +30,7 @@ import {
 } from './document-signing-fields';
 import { useRequiredDocumentSigningContext } from './document-signing-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningNameFieldProps = {
   field: FieldWithSignature;
@@ -61,7 +62,11 @@ export const DocumentSigningNameField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
 
   const safeFieldMeta = ZNameFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
@@ -118,31 +123,34 @@ export const DocumentSigningNameField = ({
   };
 
   const onSign = async (authOptions?: TRecipientActionAuth, name?: string) => {
+    const value = name || providedFullName || '';
+
+    if (!value && !isAssistantMode) {
+      setShowFullNameModal(true);
+      return;
+    }
+
+    markOptimistic({ customText: value });
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value,
+      isBase64: false,
+      authOptions,
+    };
+
     try {
-      const value = name || providedFullName || '';
-
-      if (!value && !isAssistantMode) {
-        setShowFullNameModal(true);
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value,
-        isBase64: false,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
-        return;
+      } else {
+        await signFieldWithToken(payload);
       }
 
-      await signFieldWithToken(payload);
-
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -162,12 +170,15 @@ export const DocumentSigningNameField = ({
   };
 
   const onRemove = async () => {
-    try {
-      const payload: TRemovedSignedFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-      };
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
 
+    const payload: TRemovedSignedFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+    };
+
+    try {
       if (onUnsignField) {
         await onUnsignField(payload);
         return;
@@ -175,8 +186,12 @@ export const DocumentSigningNameField = ({
 
       await removeSignedFieldWithToken(payload);
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -189,7 +204,7 @@ export const DocumentSigningNameField = ({
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onPreSign={onPreSign}
       onSign={onSign}
       onRemove={onRemove}
@@ -197,7 +212,7 @@ export const DocumentSigningNameField = ({
     >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <DocumentSigningFieldsUninserted>
           {providedFullName ? (
             <span className="opacity-60">{providedFullName}</span>
@@ -207,9 +222,9 @@ export const DocumentSigningNameField = ({
         </DocumentSigningFieldsUninserted>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {providedFullName && !isAssistantMode ? providedFullName : field.customText}
+          {providedFullName && !isAssistantMode ? providedFullName : effectiveField.customText}
         </DocumentSigningFieldsInserted>
       )}
 

@@ -30,6 +30,7 @@ import {
   DocumentSigningFieldsUninserted,
 } from './document-signing-fields';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningTextFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -76,10 +77,17 @@ export const DocumentSigningTextField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
   const safeFieldMeta = ZTextFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  // Don't surface the spinner while the optimistic state is showing the
+  // field as inserted — the network mutation is running in the background
+  // but the user already sees the saved value.
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
   const shouldAutoSignField =
     (!field.inserted && parsedFieldMeta?.text) ||
     (!field.inserted && parsedFieldMeta?.text && parsedFieldMeta?.readOnly);
@@ -146,30 +154,42 @@ export const DocumentSigningTextField = ({
   };
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    if (!localText || userInputHasErrors) {
+      return;
+    }
+
+    const valueToInsert = localText;
+
+    // Flip the UI to "inserted" immediately. The network round-trip can
+    // take 700-900ms on Railway↔Supabase and revalidating the route
+    // loader adds ~1.5s more — the signer shouldn't have to stare at a
+    // spinner for either.
+    markOptimistic({ customText: valueToInsert });
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value: valueToInsert,
+      isBase64: true,
+      authOptions,
+    };
+
     try {
-      if (!localText || userInputHasErrors) {
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value: localText,
-        isBase64: true,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
-        return;
+      } else {
+        await signFieldWithToken(payload);
       }
-
-      await signFieldWithToken(payload);
 
       setLocalCustomText('');
 
-      await revalidate();
+      // Fire-and-forget the revalidation — the optimistic UI is already
+      // showing the correct state. The loader refetch happens in the
+      // background and reconciles when it lands.
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -189,12 +209,18 @@ export const DocumentSigningTextField = ({
   };
 
   const onRemove = async () => {
-    try {
-      const payload: TRemovedSignedFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-      };
+    // Flip the UI back to "uninserted" instantly. If the server rejects
+    // the remove for some reason we restore the optimistic-inserted state
+    // (rare; usually only auth/expiry).
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
 
+    const payload: TRemovedSignedFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+    };
+
+    try {
       if (onUnsignField) {
         await onUnsignField(payload);
         return;
@@ -204,8 +230,14 @@ export const DocumentSigningTextField = ({
 
       setLocalCustomText(parsedFieldMeta?.text ?? '');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      // Restore the inserted state so the user can see their work wasn't
+      // lost just because the network blipped on the remove call.
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -235,7 +267,7 @@ export const DocumentSigningTextField = ({
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onPreSign={onPreSign}
       onSign={onSign}
       onRemove={onRemove}
@@ -243,15 +275,15 @@ export const DocumentSigningTextField = ({
     >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <DocumentSigningFieldsUninserted>
           {fieldDisplayName || <Trans>Text</Trans>}
         </DocumentSigningFieldsUninserted>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {effectiveField.customText}
         </DocumentSigningFieldsInserted>
       )}
 
@@ -279,7 +311,7 @@ export const DocumentSigningTextField = ({
           {parsedFieldMeta?.characterLimit !== undefined &&
             parsedFieldMeta?.characterLimit > 0 &&
             !userInputHasErrors && (
-              <div className="text-muted-foreground text-sm">
+              <div className="text-sm text-muted-foreground">
                 <Plural
                   value={charactersRemaining}
                   one="1 character remaining"

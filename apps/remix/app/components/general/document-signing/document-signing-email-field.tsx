@@ -25,6 +25,7 @@ import {
 } from './document-signing-fields';
 import { useRequiredDocumentSigningContext } from './document-signing-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningEmailFieldProps = {
   field: FieldWithSignature;
@@ -53,7 +54,11 @@ export const DocumentSigningEmailField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
 
   const safeFieldMeta = ZEmailFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
@@ -85,17 +90,19 @@ export const DocumentSigningEmailField = ({
   }, [providedEmail, field.inserted, field.customText]);
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    const value = providedEmail ?? '';
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value,
+      isBase64: false,
+      authOptions,
+    };
+
+    markOptimistic({ customText: value });
+
     try {
-      const value = providedEmail ?? '';
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value,
-        isBase64: false,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
         return;
@@ -103,8 +110,10 @@ export const DocumentSigningEmailField = ({
 
       await signFieldWithToken(payload);
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -124,6 +133,9 @@ export const DocumentSigningEmailField = ({
   };
 
   const onRemove = async () => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -137,8 +149,12 @@ export const DocumentSigningEmailField = ({
 
       await removeSignedFieldWithToken(payload);
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -150,10 +166,15 @@ export const DocumentSigningEmailField = ({
   };
 
   return (
-    <DocumentSigningFieldContainer field={field} onSign={onSign} onRemove={onRemove} type="Email">
+    <DocumentSigningFieldContainer
+      field={effectiveField}
+      onSign={onSign}
+      onRemove={onRemove}
+      type="Email"
+    >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <DocumentSigningFieldsUninserted>
           {providedEmail ? (
             <span className="opacity-60">{providedEmail}</span>
@@ -163,9 +184,9 @@ export const DocumentSigningEmailField = ({
         </DocumentSigningFieldsUninserted>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {providedEmail && !isAssistantMode ? providedEmail : field.customText}
+          {providedEmail && !isAssistantMode ? providedEmail : effectiveField.customText}
         </DocumentSigningFieldsInserted>
       )}
     </DocumentSigningFieldContainer>

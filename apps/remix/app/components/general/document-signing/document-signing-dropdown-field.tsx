@@ -28,6 +28,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningDropdownFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -61,24 +62,32 @@ export const DocumentSigningDropdownField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
   const shouldAutoSignField =
     (!field.inserted && localChoice) || (!field.inserted && isReadOnly && defaultValue);
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    if (!localChoice) {
+      return;
+    }
+
+    const valueToInsert = localChoice;
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value: valueToInsert,
+      isBase64: true,
+      authOptions,
+    };
+
+    markOptimistic({ customText: valueToInsert });
+
     try {
-      if (!localChoice) {
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value: localChoice,
-        isBase64: true,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
       } else {
@@ -87,8 +96,10 @@ export const DocumentSigningDropdownField = ({
 
       setLocalChoice('');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -112,6 +123,9 @@ export const DocumentSigningDropdownField = ({
   };
 
   const onRemove = async () => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -127,8 +141,12 @@ export const DocumentSigningDropdownField = ({
 
       setLocalChoice('');
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -164,24 +182,24 @@ export const DocumentSigningDropdownField = ({
   return (
     <div className="pointer-events-none">
       <DocumentSigningFieldContainer
-        field={field}
+        field={effectiveField}
         onPreSign={onPreSign}
         onSign={onSign}
         onRemove={onRemove}
         type="Dropdown"
       >
         {isLoading && (
-          <div className="bg-background absolute inset-0 flex items-center justify-center rounded-md">
-            <Loader className="text-primary h-5 w-5 animate-spin md:h-8 md:w-8" />
+          <div className="absolute inset-0 flex items-center justify-center rounded-md bg-background">
+            <Loader className="h-5 w-5 animate-spin text-primary md:h-8 md:w-8" />
           </div>
         )}
 
-        {!field.inserted && (
-          <p className="group-hover:text-primary text-foreground flex flex-col items-center justify-center duration-200">
+        {!effectiveField.inserted && (
+          <p className="flex flex-col items-center justify-center text-foreground duration-200 group-hover:text-primary">
             <Select value={localChoice} onValueChange={handleSelectItem}>
               <SelectTrigger
                 className={cn(
-                  'text-foreground z-10 h-full w-full border-none ring-0 focus:border-none focus:ring-0',
+                  'z-10 h-full w-full border-none text-foreground ring-0 focus:border-none focus:ring-0',
                 )}
               >
                 <SelectValue
@@ -200,9 +218,9 @@ export const DocumentSigningDropdownField = ({
           </p>
         )}
 
-        {field.inserted && (
-          <p className="text-foreground text-[clamp(0.425rem,25cqw,0.825rem)] duration-200">
-            {field.customText}
+        {effectiveField.inserted && (
+          <p className="text-[clamp(0.425rem,25cqw,0.825rem)] text-foreground duration-200">
+            {effectiveField.customText}
           </p>
         )}
       </DocumentSigningFieldContainer>

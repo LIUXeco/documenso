@@ -26,6 +26,7 @@ import { useToast } from '@documenso/ui/primitives/use-toast';
 import { useRequiredDocumentSigningAuthContext } from './document-signing-auth-provider';
 import { DocumentSigningFieldContainer } from './document-signing-field-container';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningCheckboxFieldProps = {
   field: FieldWithSignatureAndFieldMeta;
@@ -91,39 +92,49 @@ export const DocumentSigningCheckboxField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
   const shouldAutoSignField =
     (!field.inserted && checkedValues.length > 0 && isLengthConditionMet) ||
     (!field.inserted && isReadOnly && isLengthConditionMet);
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    // Do nothing, this should only happen when the user clicks the field, but
+    // misses the checkbox which triggers this callback.
+    if (checkedValues.length === 0) {
+      return;
+    }
+
+    if (!isLengthConditionMet) {
+      return;
+    }
+
+    const valueToInsert = toCheckboxValue(checkedValues);
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value: valueToInsert,
+      isBase64: true,
+      authOptions,
+    };
+
+    markOptimistic({ customText: valueToInsert });
+
     try {
-      // Do nothing, this should only happen when the user clicks the field, but
-      // misses the checkbox which triggers this callback.
-      if (checkedValues.length === 0) {
-        return;
-      }
-
-      if (!isLengthConditionMet) {
-        return;
-      }
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value: toCheckboxValue(checkedValues),
-        isBase64: true,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
       } else {
         await signFieldWithToken(payload);
       }
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -143,6 +154,9 @@ export const DocumentSigningCheckboxField = ({
   };
 
   const onRemove = async (fieldType?: string) => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -159,8 +173,12 @@ export const DocumentSigningCheckboxField = ({
         setCheckedValues([]);
       }
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -239,7 +257,7 @@ export const DocumentSigningCheckboxField = ({
         variant: 'destructive',
       });
     } finally {
-      await revalidate();
+      void revalidate();
     }
   };
 
@@ -253,24 +271,24 @@ export const DocumentSigningCheckboxField = ({
   }, [checkedValues, isLengthConditionMet, field.inserted]);
 
   const parsedCheckedValues = useMemo(
-    () => fromCheckboxValue(field.customText),
-    [field.customText],
+    () => fromCheckboxValue(effectiveField.customText),
+    [effectiveField.customText],
   );
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onSign={onSign}
       onRemove={onRemove}
       type="Checkbox"
     >
       {isLoading && (
-        <div className="bg-background absolute inset-0 z-20 flex items-center justify-center rounded-md">
-          <Loader className="text-primary h-5 w-5 animate-spin md:h-8 md:w-8" />
+        <div className="absolute inset-0 z-20 flex items-center justify-center rounded-md bg-background">
+          <Loader className="h-5 w-5 animate-spin text-primary md:h-8 md:w-8" />
         </div>
       )}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <>
           {!isLengthConditionMet && (
             <FieldToolTip key={field.id} field={field} color="warning" className="">
@@ -300,7 +318,7 @@ export const DocumentSigningCheckboxField = ({
                   {!item.value.includes('empty-value-') && item.value && (
                     <Label
                       htmlFor={`checkbox-${field.id}-${item.id}`}
-                      className="text-foreground ml-1.5 text-xs font-normal"
+                      className="ml-1.5 text-xs font-normal text-foreground"
                     >
                       {item.value}
                     </Label>
@@ -312,7 +330,7 @@ export const DocumentSigningCheckboxField = ({
         </>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <div
           className={cn(
             'my-0.5 flex gap-1',
@@ -334,7 +352,7 @@ export const DocumentSigningCheckboxField = ({
                 {!item.value.includes('empty-value-') && item.value && (
                   <Label
                     htmlFor={`checkbox-${field.id}-${item.id}`}
-                    className="text-foreground ml-1.5 text-xs font-normal"
+                    className="ml-1.5 text-xs font-normal text-foreground"
                   >
                     {item.value}
                   </Label>

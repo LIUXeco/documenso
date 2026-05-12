@@ -24,6 +24,7 @@ import {
 } from './document-signing-fields';
 import { useRequiredDocumentSigningContext } from './document-signing-provider';
 import { useDocumentSigningRecipientContext } from './document-signing-recipient-provider';
+import { useOptimisticFieldSign } from './use-optimistic-field-sign';
 
 export type DocumentSigningInitialsFieldProps = {
   field: FieldWithSignature;
@@ -53,23 +54,29 @@ export const DocumentSigningInitialsField = ({
     isPending: isRemoveSignedFieldWithTokenLoading,
   } = trpc.field.removeSignedFieldWithToken.useMutation(DO_NOT_INVALIDATE_QUERY_ON_MUTATION);
 
-  const isLoading = isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading;
+  const { effectiveField, markOptimistic, clearOptimistic, isOptimistic } =
+    useOptimisticFieldSign(field);
+
+  const isLoading =
+    !isOptimistic && (isSignFieldWithTokenLoading || isRemoveSignedFieldWithTokenLoading);
 
   const safeFieldMeta = ZInitialsFieldMeta.safeParse(field.fieldMeta);
   const parsedFieldMeta = safeFieldMeta.success ? safeFieldMeta.data : null;
 
   const onSign = async (authOptions?: TRecipientActionAuth) => {
+    const value = initials ?? '';
+
+    const payload: TSignFieldWithTokenMutationSchema = {
+      token: recipient.token,
+      fieldId: field.id,
+      value,
+      isBase64: false,
+      authOptions,
+    };
+
+    markOptimistic({ customText: value });
+
     try {
-      const value = initials ?? '';
-
-      const payload: TSignFieldWithTokenMutationSchema = {
-        token: recipient.token,
-        fieldId: field.id,
-        value,
-        isBase64: false,
-        authOptions,
-      };
-
       if (onSignField) {
         await onSignField(payload);
         return;
@@ -77,8 +84,10 @@ export const DocumentSigningInitialsField = ({
 
       await signFieldWithToken(payload);
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      clearOptimistic();
+
       const error = AppError.parseError(err);
 
       if (error.code === AppErrorCode.UNAUTHORIZED) {
@@ -98,6 +107,9 @@ export const DocumentSigningInitialsField = ({
   };
 
   const onRemove = async () => {
+    const previousCustomText = effectiveField.customText;
+    clearOptimistic();
+
     try {
       const payload: TRemovedSignedFieldWithTokenMutationSchema = {
         token: recipient.token,
@@ -111,8 +123,12 @@ export const DocumentSigningInitialsField = ({
 
       await removeSignedFieldWithToken(payload);
 
-      await revalidate();
+      void revalidate();
     } catch (err) {
+      if (previousCustomText) {
+        markOptimistic({ customText: previousCustomText });
+      }
+
       console.error(err);
 
       toast({
@@ -125,22 +141,22 @@ export const DocumentSigningInitialsField = ({
 
   return (
     <DocumentSigningFieldContainer
-      field={field}
+      field={effectiveField}
       onSign={onSign}
       onRemove={onRemove}
       type="Initials"
     >
       {isLoading && <DocumentSigningFieldsLoader />}
 
-      {!field.inserted && (
+      {!effectiveField.inserted && (
         <DocumentSigningFieldsUninserted>
           <Trans>Initials</Trans>
         </DocumentSigningFieldsUninserted>
       )}
 
-      {field.inserted && (
+      {effectiveField.inserted && (
         <DocumentSigningFieldsInserted textAlign={parsedFieldMeta?.textAlign}>
-          {field.customText}
+          {effectiveField.customText}
         </DocumentSigningFieldsInserted>
       )}
     </DocumentSigningFieldContainer>
