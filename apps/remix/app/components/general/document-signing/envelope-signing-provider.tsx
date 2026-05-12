@@ -282,10 +282,13 @@ export const EnvelopeSigningProvider = ({
   /**
    * Assistant recipients are those that have a signing order after the assistant.
    */
-  const assistantRecipients =
-    recipient.role === RecipientRole.ASSISTANT
-      ? envelope.recipients.filter((r) => (r.signingOrder ?? 0) > (recipient.signingOrder ?? 0))
-      : [];
+  const assistantRecipients = useMemo(
+    () =>
+      recipient.role === RecipientRole.ASSISTANT
+        ? envelope.recipients.filter((r) => (r.signingOrder ?? 0) > (recipient.signingOrder ?? 0))
+        : [],
+    [recipient.role, recipient.signingOrder, envelope.recipients],
+  );
 
   /**
    * Assistant fields are those fulfill all of the following:
@@ -293,13 +296,16 @@ export const EnvelopeSigningProvider = ({
    * - After the assistant signing order
    * - Are not signature fields
    */
-  const assistantFields =
-    recipient.role === RecipientRole.ASSISTANT
-      ? assistantRecipients
-          .filter((r) => r.signingStatus !== SigningStatus.SIGNED)
-          .map((r) => r.fields.filter((field) => field.type !== FieldType.SIGNATURE))
-          .flat()
-      : [];
+  const assistantFields = useMemo(
+    () =>
+      recipient.role === RecipientRole.ASSISTANT
+        ? assistantRecipients
+            .filter((r) => r.signingStatus !== SigningStatus.SIGNED)
+            .map((r) => r.fields.filter((field) => field.type !== FieldType.SIGNATURE))
+            .flat()
+        : [],
+    [recipient.role, assistantRecipients],
+  );
 
   /**
    * The recipient that the assistant has currently selected to sign on behalf of.
@@ -314,25 +320,37 @@ export const EnvelopeSigningProvider = ({
 
   const selectedAssistantRecipientFields = useMemo(() => {
     return assistantFields.filter((field) => field.recipientId === selectedAssistantRecipient?.id);
-  }, [recipientFields, selectedAssistantRecipient]);
+    // The previous dep array listed `recipientFields` (the *current* recipient's
+    // fields), which had nothing to do with this filter — memo invalidated on
+    // every field tweak the actual signer made and never on the assistant-
+    // selection change it was meant to track.
+  }, [assistantFields, selectedAssistantRecipient]);
 
   /**
    * Fields that have been completed by other recipients.
+   *
+   * Inlined flatMap+filter chain previously re-ran on every parent render
+   * (every keystroke in any field) and produced a new array reference each
+   * time, cascading re-renders into every context consumer.
    */
-  const otherRecipientCompletedFields = envelope.recipients
-    .filter(({ signingStatus }) => signingStatus === SigningStatus.SIGNED)
-    .flatMap((recipient) =>
-      recipient.fields.map((field) => ({
-        ...field,
-        recipient: {
-          name: recipient.name,
-          email: recipient.email,
-          signingStatus: recipient.signingStatus,
-          role: recipient.role,
-        },
-      })),
-    )
-    .filter((field) => field.inserted);
+  const otherRecipientCompletedFields = useMemo(
+    () =>
+      envelope.recipients
+        .filter(({ signingStatus }) => signingStatus === SigningStatus.SIGNED)
+        .flatMap((recipient) =>
+          recipient.fields.map((field) => ({
+            ...field,
+            recipient: {
+              name: recipient.name,
+              email: recipient.email,
+              signingStatus: recipient.signingStatus,
+              role: recipient.role,
+            },
+          })),
+        )
+        .filter((field) => field.inserted),
+    [envelope.recipients],
+  );
 
   const nextRecipient = useMemo(() => {
     if (

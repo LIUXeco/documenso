@@ -244,21 +244,22 @@ export const getEnvelopeForRecipientSigning = async ({
 
   const settings = await getTeamSettings({ teamId: envelope.teamId });
 
-  // Get the signature if they have put it in already.
-  const recipientSignature = await prisma.signature.findFirst({
-    where: {
-      field: {
-        recipientId: recipient.id,
-        envelopeId: envelope.id,
-      },
-    },
-    select: {
-      id: true,
-      recipientId: true,
-      signatureImageAsBase64: true,
-      typedSignature: true,
-    },
-  });
+  // The envelope fetch above already includes `recipients[*].fields.signature`
+  // for THIS recipient, so we can derive the signature in memory instead of
+  // paying another Supabase round trip (~50-80ms). Prefer the first inserted
+  // signature field — that's the one the legacy query returned.
+  const recipientSignatureSource = recipient.fields
+    .map((field) => field.signature)
+    .find((signature): signature is NonNullable<typeof signature> => signature != null);
+
+  const recipientSignature = recipientSignatureSource
+    ? {
+        id: recipientSignatureSource.id,
+        recipientId: recipientSignatureSource.recipientId,
+        signatureImageAsBase64: recipientSignatureSource.signatureImageAsBase64,
+        typedSignature: recipientSignatureSource.typedSignature,
+      }
+    : null;
 
   let isRecipientsTurn = true;
 
