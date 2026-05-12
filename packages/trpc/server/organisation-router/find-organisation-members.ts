@@ -64,16 +64,15 @@ export const findOrganisationMembers = async ({
   page = 1,
   perPage = 10,
 }: FindOrganisationMembersOptions) => {
-  const organisation = await prisma.organisation.findFirst({
-    where: buildOrganisationWhereQuery({ organisationId, userId }),
-  });
-
-  if (!organisation) {
-    throw new AppError(AppErrorCode.NOT_FOUND);
-  }
+  const orgAccessFilter = buildOrganisationWhereQuery({ organisationId, userId });
 
   const whereClause: Prisma.OrganisationMemberWhereInput = {
-    organisationId: organisation.id,
+    organisationId,
+    // Scope to the same access filter the existence check uses so the
+    // findMany/count return nothing for unauthorised callers and we can
+    // run them in parallel with the existence check (one fewer
+    // Railway↔Supabase round-trip per page render).
+    organisation: orgAccessFilter,
   };
 
   if (query) {
@@ -95,7 +94,11 @@ export const findOrganisationMembers = async ({
     };
   }
 
-  const [data, count] = await Promise.all([
+  const [organisation, data, count] = await Promise.all([
+    prisma.organisation.findFirst({
+      where: orgAccessFilter,
+      select: { id: true },
+    }),
     prisma.organisationMember.findMany({
       where: whereClause,
       skip: Math.max(page - 1, 0) * perPage,
@@ -126,6 +129,10 @@ export const findOrganisationMembers = async ({
       where: whereClause,
     }),
   ]);
+
+  if (!organisation) {
+    throw new AppError(AppErrorCode.NOT_FOUND);
+  }
 
   return {
     data,

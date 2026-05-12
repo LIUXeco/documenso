@@ -47,7 +47,12 @@ export const getTemplatesByIdsRoute = authenticatedProcedure
         },
         envelopeItems: {
           select: {
-            documentData: true,
+            // We only use `firstTemplateDocumentData.id` below for backwards
+            // compatibility — `data` and `initialData` are the multi-MB PDF
+            // base64 payloads that were being pulled and discarded.
+            documentData: {
+              select: { id: true },
+            },
           },
         },
         fields: true,

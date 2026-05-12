@@ -14,11 +14,15 @@ export const ZGetEnvelopeItemsResponseSchema = z.object({
     order: true,
   })
     .extend({
+      // `data` and `initialData` are the raw PDF base64 payloads — multiple
+      // MB per item. None of the consumers of this route (template-use
+      // dialog, envelope-download dialog) read them; they only need the
+      // `id` to construct a /api/files download URL. Dropping them off the
+      // response saves the same MB-scale transfer time as we already did
+      // in envelope.editor.get.
       documentData: DocumentDataSchema.pick({
         type: true,
         id: true,
-        data: true,
-        initialData: true,
       }),
     })
     .array(),

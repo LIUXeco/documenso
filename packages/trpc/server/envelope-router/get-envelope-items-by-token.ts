@@ -75,9 +75,10 @@ const handleGetEnvelopeItemsByToken = async ({
     },
     include: {
       envelopeItems: {
-        include: {
-          documentData: true,
-        },
+        // The response schema (get-envelope-items-by-token.types.ts) only
+        // exposes id/envelopeId/title/order, so loading documentData here
+        // was pure waste — Zod stripped the multi-MB blob before sending.
+        select: { id: true, envelopeId: true, title: true, order: true },
       },
     },
   });
@@ -117,9 +118,10 @@ const handleGetEnvelopeItemsByUser = async ({
     where: envelopeWhereInput,
     include: {
       envelopeItems: {
-        include: {
-          documentData: true,
-        },
+        // The response schema (get-envelope-items-by-token.types.ts) only
+        // exposes id/envelopeId/title/order, so loading documentData here
+        // was pure waste — Zod stripped the multi-MB blob before sending.
+        select: { id: true, envelopeId: true, title: true, order: true },
       },
     },
   });

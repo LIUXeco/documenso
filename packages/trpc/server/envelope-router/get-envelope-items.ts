@@ -37,7 +37,12 @@ export const getEnvelopeItemsRoute = authenticatedProcedure
       include: {
         envelopeItems: {
           include: {
-            documentData: true,
+            // Skip the data + initialData PDF blobs; consumers only use
+            // `id` to construct a /api/files download URL. See
+            // get-envelope-items.types.ts for the matching response shape.
+            documentData: {
+              select: { id: true, type: true },
+            },
           },
         },
       },

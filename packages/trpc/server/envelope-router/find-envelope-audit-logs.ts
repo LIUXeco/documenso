@@ -42,9 +42,32 @@ export const findEnvelopeAuditLogsRoute = authenticatedProcedure
       teamId: ctx.teamId,
     });
 
-    const envelope = await prisma.envelope.findUnique({
-      where: envelopeWhereInput,
-    });
+    // Run the envelope existence/auth check together with the audit log
+    // fetches. The audit log queries scope to the same envelope via a
+    // nested `envelope` filter, so an unauthorised caller gets an empty
+    // result regardless and the explicit existence check still gives the
+    // right error code. Saves one Railway↔Supabase round-trip per call.
+    const auditLogScopedEnvelopeWhere = {
+      AND: [envelopeWhereInput, { type: EnvelopeType.DOCUMENT }],
+    };
+
+    const [envelope, data, count] = await Promise.all([
+      prisma.envelope.findUnique({
+        where: envelopeWhereInput,
+        select: { id: true, type: true },
+      }),
+      prisma.documentAuditLog.findMany({
+        where: { envelope: auditLogScopedEnvelopeWhere },
+        skip: Math.max(page - 1, 0) * perPage,
+        take: perPage,
+        orderBy: {
+          [orderByColumn]: orderByDirection,
+        },
+      }),
+      prisma.documentAuditLog.count({
+        where: { envelope: auditLogScopedEnvelopeWhere },
+      }),
+    ]);
 
     if (!envelope) {
       throw new AppError(AppErrorCode.NOT_FOUND);
@@ -56,20 +79,6 @@ export const findEnvelopeAuditLogsRoute = authenticatedProcedure
         message: 'Templates do not have audit logs.',
       });
     }
-
-    const [data, count] = await Promise.all([
-      prisma.documentAuditLog.findMany({
-        where: { envelopeId: envelope.id },
-        skip: Math.max(page - 1, 0) * perPage,
-        take: perPage,
-        orderBy: {
-          [orderByColumn]: orderByDirection,
-        },
-      }),
-      prisma.documentAuditLog.count({
-        where: { envelopeId: envelope.id },
-      }),
-    ]);
 
     const parsedData = data.map((auditLog) => parseDocumentAuditLogData(auditLog));
 
