@@ -357,10 +357,45 @@ export const completeDocumentWithToken = async ({
     });
   });
 
-  const envelopeWithRelations = await prisma.envelope.findUniqueOrThrow({
-    where: { id: envelope.id },
-    include: { documentMeta: true, recipients: true },
-  });
+  // Fetch the freshly-updated envelope (for the webhook) in parallel with
+  // the pending-recipients lookup. The webhook job trigger and the
+  // signed-email job trigger also run in parallel — none of them depend
+  // on each other's results. Sequentially this used to cost 3-4
+  // Railway↔Supabase round-trips on the signer's critical path.
+  const [envelopeWithRelations, pendingRecipients] = await Promise.all([
+    prisma.envelope.findUniqueOrThrow({
+      where: { id: envelope.id },
+      include: { documentMeta: true, recipients: true },
+    }),
+    prisma.recipient.findMany({
+      select: {
+        id: true,
+        signingOrder: true,
+        name: true,
+        email: true,
+        role: true,
+      },
+      where: {
+        envelopeId: envelope.id,
+        signingStatus: {
+          not: SigningStatus.SIGNED,
+        },
+        role: {
+          not: RecipientRole.CC,
+        },
+      },
+      // Composite sort so our next recipient is always the one with the lowest signing order or id
+      // if there is a tie.
+      orderBy: [{ signingOrder: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
+    }),
+    jobs.triggerJob({
+      name: 'send.recipient.signed.email',
+      payload: {
+        documentId: legacyDocumentId,
+        recipientId: recipient.id,
+      },
+    }),
+  ]);
 
   await triggerWebhook({
     event: WebhookTriggerEvents.DOCUMENT_RECIPIENT_COMPLETED,
@@ -369,38 +404,16 @@ export const completeDocumentWithToken = async ({
     teamId: envelope.teamId,
   });
 
-  await jobs.triggerJob({
-    name: 'send.recipient.signed.email',
-    payload: {
-      documentId: legacyDocumentId,
-      recipientId: recipient.id,
-    },
-  });
-
-  const pendingRecipients = await prisma.recipient.findMany({
-    select: {
-      id: true,
-      signingOrder: true,
-      name: true,
-      email: true,
-      role: true,
-    },
-    where: {
-      envelopeId: envelope.id,
-      signingStatus: {
-        not: SigningStatus.SIGNED,
-      },
-      role: {
-        not: RecipientRole.CC,
-      },
-    },
-    // Composite sort so our next recipient is always the one with the lowest signing order or id
-    // if there is a tie.
-    orderBy: [{ signingOrder: { sort: 'asc', nulls: 'last' } }, { id: 'asc' }],
-  });
-
   if (pendingRecipients.length > 0) {
-    await sendPendingEmail({ id, recipientId: recipient.id });
+    // Pending-email notification is fire-and-forget. The handler calls
+    // mailer.sendMail() which talks to SMTP synchronously; depending on
+    // the provider that can take 5-15 seconds, and we were awaiting it
+    // here. That single line was the main reason signers stared at the
+    // "Firmar" spinner for ~20s after a successful sign. The signer
+    // doesn't need to wait for the next-recipient notification to land.
+    void sendPendingEmail({ id, recipientId: recipient.id }).catch((err) => {
+      console.error('Failed to send pending email:', err);
+    });
 
     if (envelope.documentMeta?.signingOrder === DocumentSigningOrder.SEQUENTIAL) {
       const [nextRecipient] = pendingRecipients;
@@ -465,27 +478,10 @@ export const completeDocumentWithToken = async ({
     }
   }
 
-  const haveAllRecipientsSigned = await prisma.envelope.findFirst({
-    where: {
-      id: envelope.id,
-      recipients: {
-        every: {
-          OR: [{ signingStatus: SigningStatus.SIGNED }, { role: RecipientRole.CC }],
-        },
-      },
-    },
-  });
-
-  if (haveAllRecipientsSigned) {
-    await jobs.triggerJob({
-      name: 'internal.seal-document',
-      payload: {
-        documentId: legacyDocumentId,
-        requestMetadata,
-      },
-    });
-  }
-
+  // Fetch the final envelope shape once, then derive `haveAllRecipientsSigned`
+  // from its recipients in-memory. The legacy code did this with a second
+  // findFirst that effectively re-asked Postgres the same question, doubling
+  // the round-trip count at the tail of the request.
   const updatedDocument = await prisma.envelope.findFirstOrThrow({
     where: {
       id: envelope.id,
@@ -497,10 +493,27 @@ export const completeDocumentWithToken = async ({
     },
   });
 
-  await triggerWebhook({
-    event: WebhookTriggerEvents.DOCUMENT_SIGNED,
-    data: ZWebhookDocumentSchema.parse(mapEnvelopeToWebhookDocumentPayload(updatedDocument)),
-    userId: updatedDocument.userId,
-    teamId: updatedDocument.teamId ?? undefined,
-  });
+  const haveAllRecipientsSigned = updatedDocument.recipients.every(
+    (r) => r.signingStatus === SigningStatus.SIGNED || r.role === RecipientRole.CC,
+  );
+
+  // Run the seal-document job trigger and the document-signed webhook in
+  // parallel — neither depends on the other.
+  await Promise.all([
+    haveAllRecipientsSigned
+      ? jobs.triggerJob({
+          name: 'internal.seal-document',
+          payload: {
+            documentId: legacyDocumentId,
+            requestMetadata,
+          },
+        })
+      : Promise.resolve(),
+    triggerWebhook({
+      event: WebhookTriggerEvents.DOCUMENT_SIGNED,
+      data: ZWebhookDocumentSchema.parse(mapEnvelopeToWebhookDocumentPayload(updatedDocument)),
+      userId: updatedDocument.userId,
+      teamId: updatedDocument.teamId ?? undefined,
+    }),
+  ]);
 };
