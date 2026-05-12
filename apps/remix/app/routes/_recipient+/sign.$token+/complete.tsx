@@ -1,7 +1,7 @@
 import { useLingui } from '@lingui/react';
 import { Trans } from '@lingui/react/macro';
 import { DocumentStatus, FieldType, RecipientRole } from '@prisma/client';
-import { CheckCircle2, Clock8, DownloadIcon, Loader2 } from 'lucide-react';
+import { CheckCircle2, Clock8, DownloadIcon } from 'lucide-react';
 import { Link } from 'react-router';
 import { match } from 'ts-pattern';
 
@@ -117,11 +117,12 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
     returnToHomePath,
   } = loaderData;
 
-  // Poll signing status. While the seal-document background job is running
-  // (status PROCESSING), poll every second so the user sees the page flip
-  // to COMPLETED within ~1s of the job finishing — vs. up to 3s before,
-  // which made the long seal feel even longer. Once the document is
-  // COMPLETED/REJECTED we stop polling entirely.
+  // We no longer surface the "sealing" wait to the user — the page treats
+  // PROCESSING as success and tells them they'll get the sealed PDF by
+  // email. We still poll quietly in the background so that, if the user
+  // stays on the page long enough for the seal job to finish, the
+  // Download button appears. Poll every 5s while pending/processing and
+  // stop entirely once the doc reaches a terminal state.
   const { data: signingStatusData } = trpc.envelope.signingStatus.useQuery(
     {
       token: recipient?.token || '',
@@ -134,11 +135,7 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
           return false;
         }
 
-        if (status === 'PROCESSING') {
-          return 1000;
-        }
-
-        return 3000;
+        return 5000;
       },
       initialData: match(document?.status)
         .with(DocumentStatus.COMPLETED, () => ({ status: 'COMPLETED' }) as const)
@@ -198,10 +195,15 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
               </div>
             ))
             .with({ status: 'PROCESSING' }, () => (
-              <div className="mt-4 flex items-center text-center text-orange-600">
-                <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+              // PROCESSING means the seal-document background job is still
+              // generating the sealed PDF, which can take 30-120s. Showing
+              // a spinner here made signers think the app had hung. We treat
+              // it as success — the signature itself is already locked in,
+              // the sealed copy just arrives by email later.
+              <div className="mt-4 flex items-center text-center text-[#0073EC]">
+                <CheckCircle2 className="mr-2 h-5 w-5" />
                 <span className="text-sm">
-                  <Trans>Sellando el documento firmado</Trans>
+                  <Trans>Firmado correctamente</Trans>
                 </span>
               </div>
             ))
@@ -233,9 +235,8 @@ export default function CompletedSigningPage({ loaderData }: Route.ComponentProp
             .with({ status: 'PROCESSING' }, () => (
               <p className="mt-2.5 max-w-[60ch] text-center text-sm font-medium text-muted-foreground/60 md:text-base">
                 <Trans>
-                  Todas las partes han firmado. Estamos generando y sellando criptográficamente el
-                  documento — este proceso puede tardar entre 1 y 2 minutos. Puedes cerrar esta
-                  ventana: recibirás el documento firmado por email en cuanto esté listo.
+                  Has firmado el documento correctamente. Recibirás un email con el documento
+                  sellado en breve. Puedes cerrar esta ventana.
                 </Trans>
               </p>
             ))
